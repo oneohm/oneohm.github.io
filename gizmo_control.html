@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gizmo Control</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;600;800&display=swap');
+
+  :root {
+    --bg:        #0a0c10;
+    --panel:     #111318;
+    --border:    #1e2330;
+    --accent1:   #00e5ff;
+    --accent2:   #ff3d71;
+    --accent3:   #a78bfa;
+    --accent4:   #34d399;
+    --text:      #cdd6f4;
+    --muted:     #45475a;
+    --glow1:     0 0 18px #00e5ff66;
+    --glow2:     0 0 18px #ff3d7166;
+    --glow3:     0 0 18px #a78bfa66;
+    --glow4:     0 0 18px #34d39966;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    padding: 2rem;
+  }
+
+  /* ── scanline overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px
+    );
+    pointer-events: none; z-index: 999;
+  }
+
+  header {
+    text-align: center;
+  }
+  header h1 {
+    font-family: 'Exo 2', sans-serif;
+    font-weight: 800;
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    background: linear-gradient(90deg, var(--accent1), var(--accent3));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  header p {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--muted);
+    font-size: .8rem;
+    letter-spacing: .2em;
+    margin-top: .4rem;
+  }
+
+  /* ── connect button ── */
+  #connectBtn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .9rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    padding: .7rem 2.2rem;
+    border: 1px solid var(--accent1);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--accent1);
+    cursor: pointer;
+    transition: background .2s, box-shadow .2s, color .2s;
+    position: relative;
+    overflow: hidden;
+  }
+  #connectBtn:hover {
+    background: var(--accent1);
+    color: var(--bg);
+    box-shadow: var(--glow1);
+  }
+  #connectBtn:disabled {
+    border-color: var(--muted);
+    color: var(--muted);
+    cursor: default;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  /* ── status pill ── */
+  #status {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .75rem;
+    letter-spacing: .1em;
+    padding: .3rem 1rem;
+    border-radius: 2px;
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    transition: all .3s;
+  }
+  #status.connected {
+    border-color: var(--accent4);
+    color: var(--accent4);
+    box-shadow: var(--glow4);
+  }
+  #status.error {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  /* ── slider grid ── */
+  .sliders {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 860px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.6rem 1.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    transition: border-color .3s, box-shadow .3s;
+  }
+  .card:nth-child(1) { --accent: var(--accent1); --glow: var(--glow1); }
+  .card:nth-child(2) { --accent: var(--accent2); --glow: var(--glow2); }
+  .card:nth-child(3) { --accent: var(--accent3); --glow: var(--glow3); }
+  .card:nth-child(4) { --accent: var(--accent4); --glow: var(--glow4); }
+  .card:hover { border-color: var(--accent); box-shadow: var(--glow); }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .card-label {
+    font-weight: 600;
+    font-size: .85rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .card-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.6rem;
+    color: var(--accent);
+    min-width: 3.5ch;
+    text-align: right;
+    transition: color .15s;
+  }
+
+  /* ── custom range input ── */
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    transition: transform .15s, box-shadow .15s;
+  }
+  input[type=range]:hover::-webkit-slider-thumb {
+    transform: scale(1.25);
+    box-shadow: 0 0 16px var(--accent);
+  }
+  input[type=range]:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+  }
+
+  /* track fill using linear-gradient set via JS */
+  .track-wrap { position: relative; }
+
+  .minmax {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .65rem;
+    color: var(--muted);
+    margin-top: .3rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⬡ Gizmo</h1>
+  <p>web bluetooth control interface</p>
+</header>
+
+<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:center;">
+  <button id="connectBtn">Connect Device</button>
+  <span id="status">DISCONNECTED</span>
+</div>
+
+<div class="sliders" id="sliders">
+  <!-- generated by JS -->
+</div>
+
+<script>
+// ── UUIDs must match the sketch exactly ──────────────────────────────────────
+const SERVICE_UUID = '12345678-1234-1234-1234-123456789abc';
+const CHAR_UUIDS   = [
+  '12345678-1234-1234-1234-123456789ab1',
+  '12345678-1234-1234-1234-123456789ab2',
+  '12345678-1234-1234-1234-123456789ab3',
+  '12345678-1234-1234-1234-123456789ab4',
+];
+const LABELS = ['Channel 1', 'Channel 2', 'Channel 3', 'Channel 4'];
+const MIN = 0, MAX = 1023;
+
+// ── State ────────────────────────────────────────────────────────────────────
+let device = null;
+let chars  = [];          // BLECharacteristic references
+let writeQueues = [null, null, null, null];  // pending writes (debounce)
+
+// ── Build UI ─────────────────────────────────────────────────────────────────
+const slidersDiv  = document.getElementById('sliders');
+const connectBtn  = document.getElementById('connectBtn');
+const statusEl    = document.getElementById('status');
+
+const sliderEls = [], valueEls = [];
+
+LABELS.forEach((label, i) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="card-header">
+      <span class="card-label">${label}</span>
+      <span class="card-value" id="val${i}">512</span>
+    </div>
+    <div class="track-wrap">
+      <input type="range" id="slider${i}" min="${MIN}" max="${MAX}" value="512" disabled>
+    </div>
+    <div class="minmax"><span>${MIN}</span><span>${MAX}</span></div>
+  `;
+  slidersDiv.appendChild(card);
+  sliderEls.push(card.querySelector('input'));
+  valueEls.push(card.querySelector(`#val${i}`));
+});
+
+// Update track fill colour
+function updateTrack(i) {
+  const s   = sliderEls[i];
+  const pct = ((s.value - MIN) / (MAX - MIN)) * 100;
+  const colors = ['#00e5ff','#ff3d71','#a78bfa','#34d399'];
+  s.style.background = `linear-gradient(to right, ${colors[i]} ${pct}%, #1e2330 ${pct}%)`;
+}
+
+// Wire slider events
+sliderEls.forEach((s, i) => {
+  s.addEventListener('input', () => {
+    valueEls[i].textContent = s.value;
+    updateTrack(i);
+    scheduleWrite(i, parseInt(s.value));
+  });
+});
+
+// ── Debounced BLE write ───────────────────────────────────────────────────────
+function scheduleWrite(i, val) {
+  if (!chars[i]) return;
+  clearTimeout(writeQueues[i]);
+  writeQueues[i] = setTimeout(() => writeValue(i, val), 30);
+}
+
+async function writeValue(i, val) {
+  try {
+    const buf = new ArrayBuffer(2);
+    new DataView(buf).setInt16(0, val, true);   // little-endian int16
+    await chars[i].writeValueWithoutResponse(buf);
+  } catch (e) {
+    console.warn(`Write ${i} failed:`, e);
+  }
+}
+
+// ── BLE connect / disconnect ─────────────────────────────────────────────────
+connectBtn.addEventListener('click', async () => {
+  if (device && device.gatt.connected) {
+    device.gatt.disconnect();
+    return;
+  }
+  try {
+    setStatus('SCANNING…', '');
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ name: 'Gizmo' }],
+      optionalServices: [SERVICE_UUID],
+    });
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+
+    setStatus('CONNECTING…', '');
+    const server  = await device.gatt.connect();
+    const service = await server.getPrimaryService(SERVICE_UUID);
+
+    chars = await Promise.all(CHAR_UUIDS.map(u => service.getCharacteristic(u)));
+
+    // Read current values from device
+    for (let i = 0; i < 4; i++) {
+      const dv  = await chars[i].readValue();
+      const val = dv.getInt16(0, true);
+      sliderEls[i].value = val;
+      valueEls[i].textContent = val;
+      updateTrack(i);
+    }
+
+    // Subscribe to notifications (device → browser updates)
+    for (let i = 0; i < 4; i++) {
+      const idx = i;
+      await chars[i].startNotifications();
+      chars[i].addEventListener('characteristicvaluechanged', e => {
+        const val = e.target.value.getInt16(0, true);
+        sliderEls[idx].value = val;
+        valueEls[idx].textContent = val;
+        updateTrack(idx);
+      });
+    }
+
+    sliderEls.forEach(s => s.disabled = false);
+    sliderEls.forEach((_, i) => updateTrack(i));
+    setStatus('CONNECTED · ' + device.name, 'connected');
+    connectBtn.textContent = 'Disconnect';
+
+  } catch (err) {
+    console.error(err);
+    setStatus('ERROR: ' + err.message, 'error');
+  }
+});
+
+function onDisconnected() {
+  chars = [];
+  sliderEls.forEach(s => { s.disabled = true; });
+  setStatus('DISCONNECTED', '');
+  connectBtn.textContent = 'Connect Device';
+}
+
+function setStatus(msg, cls) {
+  statusEl.textContent = msg;
+  statusEl.className = cls;
+}
+</script>
+</body>
+</html>
