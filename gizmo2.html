@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TIG FORCE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg:         #0d0d0d;
+  --panel:      #161616;
+  --panel2:     #1c1c1c;
+  --border:     #2a2a2a;
+  --amber:      #ff8c00;
+  --amber-dim:  #7a4200;
+  --amber-glow: rgba(255,140,0,0.18);
+  --white:      #e8e8e8;
+  --muted:      #555;
+  --muted2:     #333;
+  --green:      #39d98a;
+  --red:        #ff4d4d;
+  --waveform:   #ffffff;
+  --wave-sel:   #ff8c00;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--white);
+  font-family: 'Rajdhani', sans-serif;
+  overflow-x: hidden;
+}
+
+/* ── scanline texture ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px);
+}
+
+/* ═══════════════════════ HEADER ═══════════════════════ */
+header {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 24px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.brand {
+  display: flex; align-items: baseline; gap: 10px;
+}
+.brand-name {
+  font-size: 1.7rem; font-weight: 700; letter-spacing: .12em;
+  color: var(--amber); text-transform: uppercase;
+  text-shadow: 0 0 20px rgba(255,140,0,0.5);
+}
+.brand-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .65rem; color: var(--muted); letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.ble-controls {
+  display: flex; align-items: center; gap: 12px;
+}
+#status-pill {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .65rem; letter-spacing: .12em; text-transform: uppercase;
+  padding: 4px 12px; border-radius: 2px;
+  border: 1px solid var(--muted2); color: var(--muted);
+  transition: all .3s;
+}
+#status-pill.connected { border-color: var(--green); color: var(--green); box-shadow: 0 0 10px rgba(57,217,138,.25); }
+#status-pill.error     { border-color: var(--red);   color: var(--red); }
+
+#connectBtn {
+  font-family: 'Rajdhani', sans-serif; font-weight: 700;
+  font-size: .8rem; letter-spacing: .12em; text-transform: uppercase;
+  padding: 7px 20px; border-radius: 2px;
+  border: 1px solid var(--amber); background: transparent;
+  color: var(--amber); cursor: pointer;
+  transition: background .2s, color .2s, box-shadow .2s;
+}
+#connectBtn:hover { background: var(--amber); color: #000; box-shadow: 0 0 18px rgba(255,140,0,.4); }
+#connectBtn:disabled { border-color: var(--muted2); color: var(--muted); cursor: default; }
+
+/* ═══════════════════════ MAIN LAYOUT ═══════════════════════ */
+main {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 24px 20px 120px;
+  gap: 0;
+}
+
+/* ── Section label ── */
+.section-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .6rem; letter-spacing: .22em; color: var(--muted);
+  text-transform: uppercase; align-self: flex-start;
+  margin-bottom: 8px; padding-left: 4px;
+}
+
+/* ═══════════════════════ WAVEFORM SVG ═══════════════════════ */
+#waveform-wrap {
+  width: 100%; max-width: 860px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px 12px 8px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+#waveform-svg {
+  width: 100%; height: 220px;
+  display: block;
+  cursor: crosshair;
+}
+
+/* hit zones on SVG */
+.seg-hit {
+  fill: transparent; stroke: none;
+  cursor: pointer;
+  transition: fill .15s;
+}
+.seg-hit:hover  { fill: rgba(255,140,0,0.07); }
+.seg-hit.active { fill: rgba(255,140,0,0.13); }
+
+.wave-path {
+  fill: none; stroke: var(--waveform);
+  stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round;
+  transition: stroke .2s;
+}
+
+.wave-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; fill: var(--muted);
+  pointer-events: none; user-select: none;
+  transition: fill .2s;
+}
+.wave-label.active { fill: var(--amber); }
+
+.wave-value {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; font-weight: bold; fill: var(--white);
+  pointer-events: none; user-select: none;
+  transition: fill .2s;
+}
+.wave-value.active { fill: var(--amber); }
+
+.wave-tick {
+  stroke: var(--muted2); stroke-width: 1;
+}
+.wave-grid {
+  stroke: var(--muted2); stroke-width: .5; stroke-dasharray: 3 4;
+}
+
+/* pulse mini-zigzag on the peak plateau */
+.pulse-path {
+  fill: none; stroke: var(--waveform);
+  stroke-width: 2; stroke-linejoin: miter;
+  pointer-events: none;
+}
+
+/* ═══════════════════════ PARAMETER PANEL ═══════════════════════ */
+#param-panel {
+  width: 100%; max-width: 860px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: max-height .35s cubic-bezier(.4,0,.2,1), opacity .25s;
+  max-height: 0; opacity: 0;
+}
+#param-panel.open { max-height: 200px; opacity: 1; }
+
+.param-inner {
+  padding: 20px 28px 22px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px 24px;
+}
+
+.param-name {
+  font-size: 1.05rem; font-weight: 700; letter-spacing: .08em;
+  color: var(--amber); text-transform: uppercase;
+  grid-column: 1 / -1;
+}
+
+.param-slider-wrap {
+  display: flex; align-items: center; gap: 16px;
+}
+.param-slider-wrap label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .65rem; color: var(--muted); letter-spacing: .1em;
+  min-width: 28px; text-align: right;
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  height: 4px; flex: 1;
+  background: var(--muted2); border-radius: 2px;
+  outline: none; cursor: pointer;
+  min-width: 260px;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 10px rgba(255,140,0,.6);
+  transition: transform .15s, box-shadow .15s;
+}
+input[type=range]:hover::-webkit-slider-thumb {
+  transform: scale(1.2);
+  box-shadow: 0 0 18px rgba(255,140,0,.9);
+}
+
+.param-readout {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 1.4rem; color: var(--amber);
+  min-width: 80px; text-align: right;
+  letter-spacing: .05em;
+}
+
+.param-hint {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .6rem; color: var(--muted);
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--border);
+  padding-top: 8px; margin-top: 2px;
+  letter-spacing: .08em;
+}
+
+/* ═══════════════════════ PARAM GRID (all values) ═══════════════════════ */
+#param-grid {
+  width: 100%; max-width: 860px;
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+@media (max-width: 600px) { #param-grid { grid-template-columns: repeat(2,1fr); } }
+
+.param-tile {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.param-tile:hover  { border-color: var(--amber-dim); background: #202020; }
+.param-tile.active { border-color: var(--amber); background: #1f1800; }
+
+.tile-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .58rem; color: var(--muted); letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.tile-value {
+  font-size: 1.15rem; font-weight: 700; color: var(--white);
+  letter-spacing: .04em;
+  transition: color .2s;
+}
+.param-tile.active .tile-value { color: var(--amber); }
+
+/* BLE channel badge */
+.tile-ble {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .52rem; color: var(--amber-dim);
+  letter-spacing: .08em;
+  align-self: flex-end;
+}
+.param-tile.active .tile-ble { color: var(--amber); }
+
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══════════════════════════════════════════════════════════ -->
+<header>
+  <div class="brand">
+    <span class="brand-name">TIG FORCE</span>
+    <span class="brand-sub">Weld Controller</span>
+  </div>
+  <div class="ble-controls">
+    <span id="status-pill">OFFLINE</span>
+    <button id="connectBtn">Connect</button>
+  </div>
+</header>
+
+<main>
+  <p class="section-label">Waveform — tap segment to edit</p>
+
+  <!-- ══ WAVEFORM ══════════════════════════════════════════════════════ -->
+  <div id="waveform-wrap">
+    <svg id="waveform-svg" viewBox="0 0 820 220" preserveAspectRatio="xMidYMid meet">
+
+      <!-- grid lines -->
+      <g id="grid-lines"></g>
+
+      <!-- Y-axis labels -->
+      <g id="y-axis"></g>
+
+      <!-- X-axis baseline -->
+      <line x1="40" y1="185" x2="800" y2="185" stroke="#333" stroke-width="1"/>
+
+      <!-- main waveform path -->
+      <path id="wave-path" class="wave-path"/>
+
+      <!-- pulse overlay drawn on peak plateau -->
+      <path id="pulse-path" class="pulse-path"/>
+
+      <!-- interactive hit zones (drawn over path) -->
+      <g id="hit-zones"></g>
+
+      <!-- segment labels and value readouts -->
+      <g id="wave-annotations"></g>
+
+    </svg>
+  </div>
+
+  <!-- ══ PARAM EDITOR PANEL ════════════════════════════════════════════ -->
+  <div id="param-panel">
+    <div class="param-inner">
+      <div class="param-name" id="panel-param-name">—</div>
+      <div class="param-slider-wrap">
+        <label id="slider-min">0</label>
+        <input type="range" id="param-slider" min="0" max="100" value="50">
+        <label id="slider-max">100</label>
+      </div>
+      <div class="param-readout" id="panel-readout">—</div>
+      <div class="param-hint" id="panel-hint"></div>
+    </div>
+  </div>
+
+  <!-- ══ PARAM TILES ═══════════════════════════════════════════════════ -->
+  <div id="param-grid"></div>
+
+</main>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// PARAMETER DEFINITIONS
+// ════════════════════════════════════════════════════════════════════════
+const PARAMS = [
+  { id:'preflow',   label:'Gas Pre-Flow',    unit:'s',   min:0,   max:10,  step:0.1, value:0.5,  fmt: v=>`${v.toFixed(1)}s`,  ble:null, hint:'Gas shield before arc start' },
+  { id:'startamp',  label:'Start Amps',      unit:'A',   min:1,   max:250, step:1,   value:30,   fmt: v=>`${v}A`,             ble:null, hint:'Initial strike amperage' },
+  { id:'rampup',    label:'Ramp-Up Time',    unit:'s',   min:0,   max:10,  step:0.1, value:1.5,  fmt: v=>`${v.toFixed(1)}s`,  ble:null, hint:'Time to ramp from Start to Peak amps' },
+  { id:'peakamp',   label:'Peak Amps',       unit:'A',   min:1,   max:250, step:1,   value:120,  fmt: v=>`${v}A`,             ble:1,    hint:'BLE CH1 — Main welding amperage' },
+  { id:'baseamp',   label:'Base Amps',       unit:'A',   min:1,   max:250, step:1,   value:45,   fmt: v=>`${v}A`,             ble:2,    hint:'BLE CH2 — Pulse low (background) amps' },
+  { id:'pulsefreq', label:'Pulse Freq',      unit:'Hz',  min:0,   max:500, step:1,   value:2,    fmt: v=>v===0?'OFF':`${v}Hz`,ble:3,    hint:'BLE CH3 — 0 = pulsing disabled' },
+  { id:'dutycycle', label:'Duty Cycle',      unit:'%',   min:10,  max:90,  step:1,   value:50,   fmt: v=>`${v}%`,             ble:4,    hint:'BLE CH4 — % time at Peak (pulse on-time)' },
+  { id:'rampdown',  label:'Ramp-Down Time',  unit:'s',   min:0,   max:10,  step:0.1, value:2.0,  fmt: v=>`${v.toFixed(1)}s`,  ble:null, hint:'Crater fill — time to ramp from Peak to Finish' },
+  { id:'postflow',  label:'Gas Post-Flow',   unit:'s',   min:0,   max:30,  step:0.5, value:8.0,  fmt: v=>`${v.toFixed(1)}s`,  ble:null, hint:'Gas shield after arc extinguishes' },
+];
+
+function param(id) { return PARAMS.find(p=>p.id===id); }
+function pv(id) { return param(id).value; }
+
+// ════════════════════════════════════════════════════════════════════════
+// BLE
+// ════════════════════════════════════════════════════════════════════════
+const SERVICE_UUID = '12345678-1234-1234-1234-123456789abc';
+const CHAR_UUIDS   = [
+  null,
+  '12345678-1234-1234-1234-123456789ab1',
+  '12345678-1234-1234-1234-123456789ab2',
+  '12345678-1234-1234-1234-123456789ab3',
+  '12345678-1234-1234-1234-123456789ab4',
+];
+let device = null, bleChars = {};
+
+document.getElementById('connectBtn').addEventListener('click', async () => {
+  if (device && device.gatt.connected) { device.gatt.disconnect(); return; }
+  try {
+    setStatus('SCANNING…','');
+    device = await navigator.bluetooth.requestDevice({
+      filters:[{name:'Gizmo'}], optionalServices:[SERVICE_UUID]
+    });
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    setStatus('CONNECTING…','');
+    const server  = await device.gatt.connect();
+    const service = await server.getPrimaryService(SERVICE_UUID);
+    for (let ch=1; ch<=4; ch++) {
+      bleChars[ch] = await service.getCharacteristic(CHAR_UUIDS[ch]);
+      const dv = await bleChars[ch].readValue();
+      const v  = dv.getInt16(0, true);
+      const p  = PARAMS.find(p=>p.ble===ch);
+      if (p) { p.value = Math.min(p.max, Math.max(p.min, v)); }
+      bleChars[ch].addEventListener('characteristicvaluechanged', e=>{
+        const nv = e.target.value.getInt16(0, true);
+        const pp = PARAMS.find(p=>p.ble===ch);
+        if (pp) { pp.value = Math.min(pp.max, Math.max(pp.min, nv)); renderAll(); }
+      });
+      await bleChars[ch].startNotifications();
+    }
+    setStatus('CONNECTED · Gizmo','connected');
+    document.getElementById('connectBtn').textContent = 'Disconnect';
+    renderAll();
+  } catch(e) {
+    console.error(e);
+    setStatus('ERROR: '+e.message,'error');
+  }
+});
+
+function onDisconnected() {
+  bleChars = {};
+  setStatus('OFFLINE','');
+  document.getElementById('connectBtn').textContent = 'Connect';
+}
+function setStatus(msg, cls) {
+  const el = document.getElementById('status-pill');
+  el.textContent = msg; el.className = cls;
+}
+
+async function writeBle(ch, val) {
+  if (!bleChars[ch]) return;
+  const buf = new ArrayBuffer(2);
+  new DataView(buf).setInt16(0, val, true);
+  try { await bleChars[ch].writeValueWithoutResponse(buf); } catch(e) { console.warn(e); }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// WAVEFORM GEOMETRY
+// ════════════════════════════════════════════════════════════════════════
+// SVG coordinate space: x 40..800, y 10..185 (baseline at y=185)
+const SVG_X0 = 40, SVG_X1 = 800, SVG_Y_TOP = 18, SVG_Y_BASE = 185;
+const SVG_W = SVG_X1 - SVG_X0;
+const SVG_H = SVG_Y_BASE - SVG_Y_TOP;
+
+// Horizontal proportions for each phase (sum = 1)
+function getPhaseWidths() {
+  const pre  = pv('preflow');
+  const ru   = pv('rampup');
+  const pk   = 3.5; // fixed visual weight for peak plateau
+  const rd   = pv('rampdown');
+  const post = pv('postflow');
+  const total = pre + 0.5 + ru + pk + rd + 0.5 + post;  // 0.5 = start/finish plateau
+  return { pre, startPlat:0.5, ru, pk, rd, finishPlat:0.5, post, total };
+}
+
+function ampToY(amp) {
+  const maxAmp = Math.max(pv('peakamp'), pv('startamp'), 10);
+  return SVG_Y_BASE - (amp / (maxAmp * 1.15)) * SVG_H;
+}
+
+function computePoints() {
+  const pw = getPhaseWidths();
+  function x(acc) { return SVG_X0 + (acc / pw.total) * SVG_W; }
+
+  const yBase   = SVG_Y_BASE;
+  const yStart  = ampToY(pv('startamp'));
+  const yPeak   = ampToY(pv('peakamp'));
+  const yBase_  = ampToY(pv('baseamp'));   // base amps y (rename to avoid conflict)
+  const yFinish = yStart;                  // finish amp mirrors start for simplicity
+
+  let acc = 0;
+  const pts = {};
+  pts.x0 = x(acc);         pts.y0 = yBase;   // timeline start
+  acc += pw.pre;
+  pts.x1 = x(acc);         pts.y1 = yBase;   // arc strike
+  acc += pw.startPlat;
+  pts.x2 = x(acc);         pts.y2 = yStart;  // start plateau end
+  acc += pw.ru;
+  pts.x3 = x(acc);         pts.y3 = yPeak;   // peak reached
+  acc += pw.pk;
+  pts.x4 = x(acc);         pts.y4 = yPeak;   // peak plateau end
+  acc += pw.rd;
+  pts.x5 = x(acc);         pts.y5 = yFinish; // ramp-down complete
+  acc += pw.finishPlat;
+  pts.x6 = x(acc);         pts.y6 = yFinish; // finish plateau end
+  pts.x7 = x(pw.total);    pts.y7 = yBase;   // arc off
+  pts.x8 = pts.x7;         pts.y8 = yBase;   // post-flow end (x same, just for hit zone)
+  pts.x9 = SVG_X1;         pts.y9 = yBase;
+
+  // mid-x of each phase
+  pts.midPreX     = SVG_X0 + ((0 + pw.pre/2) / pw.total) * SVG_W;
+  pts.midStartX   = SVG_X0 + ((pw.pre + pw.startPlat/2) / pw.total) * SVG_W;
+  pts.midRampUpX  = SVG_X0 + ((pw.pre + pw.startPlat + pw.ru/2) / pw.total) * SVG_W;
+  pts.midPeakX    = SVG_X0 + ((pw.pre + pw.startPlat + pw.ru + pw.pk/2) / pw.total) * SVG_W;
+  pts.midRampDnX  = SVG_X0 + ((pw.pre + pw.startPlat + pw.ru + pw.pk + pw.rd/2) / pw.total) * SVG_W;
+  pts.midFinishX  = SVG_X0 + ((pw.pre + pw.startPlat + pw.ru + pw.pk + pw.rd + pw.finishPlat/2) / pw.total) * SVG_W;
+  pts.midPostX    = SVG_X0 + ((pw.pre + pw.startPlat + pw.ru + pw.pk + pw.rd + pw.finishPlat + pw.post/2) / pw.total) * SVG_W;
+
+  pts.yStart  = yStart;
+  pts.yPeak   = yPeak;
+  pts.yBaseA  = yBase_;
+  pts.yFinish = yFinish;
+  pts.yBase   = yBase;
+
+  return pts;
+}
+
+function buildWavePath(pts) {
+  const p = pv('pulsefreq');
+  let d = `M ${pts.x0} ${pts.y0}`;
+  // pre-flow: flat at zero
+  d += ` L ${pts.x1} ${pts.y1}`;
+  // strike: vertical jump to start amp
+  d += ` L ${pts.x1} ${pts.y2}`;
+  // start plateau
+  d += ` L ${pts.x2} ${pts.y2}`;
+  // ramp up
+  d += ` L ${pts.x3} ${pts.y3}`;
+  // peak plateau (smooth if pulse off)
+  d += ` L ${pts.x4} ${pts.y4}`;
+  // ramp down
+  d += ` L ${pts.x5} ${pts.y5}`;
+  // finish plateau
+  d += ` L ${pts.x6} ${pts.y6}`;
+  // arc off: drop to base
+  d += ` L ${pts.x6} ${pts.y0}`;
+  // post-flow: flat at zero
+  d += ` L ${pts.x9} ${pts.y0}`;
+  return d;
+}
+
+function buildPulsePath(pts) {
+  const freq = pv('pulsefreq');
+  if (freq === 0) return '';
+  const duty = pv('dutycycle') / 100;
+  const plateauW = pts.x4 - pts.x3;
+  // Determine how many pulses fit — cap at reasonable number for display
+  const cycleW = plateauW / Math.min(freq * 2, plateauW / 8);  // visual width per cycle
+  const numCycles = Math.floor(plateauW / cycleW);
+  if (numCycles < 1) return '';
+  const actualCycleW = plateauW / numCycles;
+  const onW  = actualCycleW * duty;
+  const offW = actualCycleW * (1 - duty);
+  const yPeak = pts.yPeak;
+  const yBase = pts.yBaseA;
+  let d = `M ${pts.x3} ${yPeak}`;
+  for (let i = 0; i < numCycles; i++) {
+    const xStart = pts.x3 + i * actualCycleW;
+    d += ` L ${xStart + onW} ${yPeak}`;
+    d += ` L ${xStart + onW} ${yBase}`;
+    d += ` L ${xStart + onW + offW} ${yBase}`;
+    d += ` L ${xStart + onW + offW} ${yPeak}`;
+  }
+  return d;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════════════════════
+let activeParam = null;
+
+// Segment definitions for hit zones and annotations
+function getSegments(pts) {
+  return [
+    { id:'preflow',   x:pts.x0,  x2:pts.x1,  label:'PRE-FLOW', labelY: SVG_Y_BASE+14, valueY: SVG_Y_BASE-6 },
+    { id:'startamp',  x:pts.x1,  x2:pts.x2,  label:'START',    labelY: pts.yStart-22, valueY: pts.yStart-10 },
+    { id:'rampup',    x:pts.x2,  x2:pts.x3,  label:'RAMP UP',  labelY: SVG_Y_BASE+14, valueY: SVG_Y_BASE-6 },
+    { id:'peakamp',   x:pts.x3,  x2:pts.x4,  label:'PEAK',     labelY: pts.yPeak-22,  valueY: pts.yPeak-10 },
+    { id:'rampdown',  x:pts.x4,  x2:pts.x5,  label:'RAMP DN',  labelY: SVG_Y_BASE+14, valueY: SVG_Y_BASE-6 },
+    { id:'postflow',  x:pts.x6,  x2:pts.x9,  label:'POST-FLOW',labelY: SVG_Y_BASE+14, valueY: SVG_Y_BASE-6 },
+  ];
+}
+
+function render() {
+  const pts = computePoints();
+  const svg  = document.getElementById('waveform-svg');
+
+  // ── wave path ──
+  document.getElementById('wave-path').setAttribute('d', buildWavePath(pts));
+
+  // ── pulse overlay ──
+  document.getElementById('pulse-path').setAttribute('d', buildPulsePath(pts));
+
+  // ── hit zones ──
+  const hzGroup = document.getElementById('hit-zones');
+  hzGroup.innerHTML = '';
+  const segs = getSegments(pts);
+  segs.forEach(seg => {
+    const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x', seg.x);
+    rect.setAttribute('y', SVG_Y_TOP);
+    rect.setAttribute('width', Math.max(seg.x2 - seg.x, 2));
+    rect.setAttribute('height', SVG_Y_BASE - SVG_Y_TOP + 20);
+    rect.setAttribute('class', 'seg-hit' + (activeParam===seg.id?' active':''));
+    rect.setAttribute('data-id', seg.id);
+    rect.addEventListener('click', () => selectParam(seg.id));
+    hzGroup.appendChild(rect);
+  });
+
+  // ── annotations ──
+  const annGroup = document.getElementById('wave-annotations');
+  annGroup.innerHTML = '';
+
+  // helper: add text
+  function addText(x, y, txt, cls) {
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x', x); t.setAttribute('y', y);
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('class', cls);
+    t.textContent = txt;
+    annGroup.appendChild(t);
+  }
+
+  // --- Pre-flow ---
+  const p0 = param('preflow');
+  addText(pts.midPreX, SVG_Y_TOP+8, 'PRE-FLOW', 'wave-label'+(activeParam==='preflow'?' active':''));
+  addText(pts.midPreX, SVG_Y_TOP+20, p0.fmt(p0.value), 'wave-value'+(activeParam==='preflow'?' active':''));
+
+  // --- Start Amps ---
+  const p1 = param('startamp');
+  addText(pts.midStartX, pts.yStart-14, p1.fmt(p1.value), 'wave-value'+(activeParam==='startamp'?' active':''));
+  addText(pts.midStartX, pts.yStart-26, 'START', 'wave-label'+(activeParam==='startamp'?' active':''));
+  // dot on waveform
+  const c1 = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  c1.setAttribute('cx', pts.x1); c1.setAttribute('cy', pts.y2);
+  c1.setAttribute('r','4'); c1.setAttribute('fill', activeParam==='startamp'?'var(--amber)':'#888');
+  c1.style.pointerEvents='none'; annGroup.appendChild(c1);
+
+  // --- Ramp-Up ---
+  const p2 = param('rampup');
+  const ruMidX = (pts.x2+pts.x3)/2, ruMidY = (pts.y2+pts.y3)/2;
+  addText(ruMidX, ruMidY-14, p2.fmt(p2.value), 'wave-value'+(activeParam==='rampup'?' active':''));
+  addText(ruMidX, ruMidY-26, 'RAMP UP', 'wave-label'+(activeParam==='rampup'?' active':''));
+
+  // --- Peak Amps ---
+  const p3 = param('peakamp');
+  addText(pts.midPeakX, pts.yPeak-14, p3.fmt(p3.value), 'wave-value'+(activeParam==='peakamp'?' active':''));
+  addText(pts.midPeakX, pts.yPeak-26, 'PEAK', 'wave-label'+(activeParam==='peakamp'?' active':''));
+  // dot
+  const c2 = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  c2.setAttribute('cx', pts.midPeakX); c2.setAttribute('cy', pts.yPeak);
+  c2.setAttribute('r','4'); c2.setAttribute('fill', activeParam==='peakamp'?'var(--amber)':'#888');
+  c2.style.pointerEvents='none'; annGroup.appendChild(c2);
+
+  // --- Base Amps (shown only if pulsing) ---
+  const p4 = param('baseamp');
+  if (pv('pulsefreq') > 0) {
+    const yBL = pts.yBaseA;
+    // dashed baseline for base amp
+    const bl = document.createElementNS('http://www.w3.org/2000/svg','line');
+    bl.setAttribute('x1', pts.x3); bl.setAttribute('x2', pts.x4);
+    bl.setAttribute('y1', yBL); bl.setAttribute('y2', yBL);
+    bl.setAttribute('stroke', activeParam==='baseamp'?'var(--amber)':'#555');
+    bl.setAttribute('stroke-width','1'); bl.setAttribute('stroke-dasharray','4 3');
+    bl.style.pointerEvents='none'; annGroup.appendChild(bl);
+    addText(pts.x3-22, yBL+4, p4.fmt(p4.value), 'wave-value'+(activeParam==='baseamp'?' active':''));
+
+    // --- Pulse freq / duty on peak plateau ---
+    const p5 = param('pulsefreq'), p6 = param('dutycycle');
+    addText(pts.midPeakX, pts.yPeak+16, `${p5.fmt(p5.value)}  ${p6.fmt(p6.value)}`, 'wave-label'+(
+      (activeParam==='pulsefreq'||activeParam==='dutycycle')?' active':''));
+  }
+
+  // --- Ramp-Down ---
+  const p7 = param('rampdown');
+  const rdMidX = (pts.x4+pts.x5)/2, rdMidY = (pts.y4+pts.y5)/2;
+  addText(rdMidX, rdMidY-14, p7.fmt(p7.value), 'wave-value'+(activeParam==='rampdown'?' active':''));
+  addText(rdMidX, rdMidY-26, 'RAMP DN', 'wave-label'+(activeParam==='rampdown'?' active':''));
+
+  // --- Post-flow ---
+  const p8 = param('postflow');
+  addText(pts.midPostX, SVG_Y_TOP+8, 'POST-FLOW', 'wave-label'+(activeParam==='postflow'?' active':''));
+  addText(pts.midPostX, SVG_Y_TOP+20, p8.fmt(p8.value), 'wave-value'+(activeParam==='postflow'?' active':''));
+
+  // --- Y-axis amp reference lines ---
+  const maxAmp = Math.max(pv('peakamp'), pv('startamp'), 10);
+  const gridGroup = document.getElementById('grid-lines');
+  gridGroup.innerHTML = '';
+  [0.25, 0.5, 0.75, 1.0].forEach(frac => {
+    const amp = Math.round(maxAmp * frac);
+    const y   = ampToY(amp / 1.15 * 1.15);  // same scale
+    const yy  = SVG_Y_BASE - (amp / (maxAmp * 1.15)) * SVG_H;
+    const gl = document.createElementNS('http://www.w3.org/2000/svg','line');
+    gl.setAttribute('x1', SVG_X0); gl.setAttribute('x2', SVG_X1);
+    gl.setAttribute('y1', yy); gl.setAttribute('y2', yy);
+    gl.setAttribute('class','wave-grid');
+    gridGroup.appendChild(gl);
+    const gt = document.createElementNS('http://www.w3.org/2000/svg','text');
+    gt.setAttribute('x', SVG_X0-4); gt.setAttribute('y', yy+4);
+    gt.setAttribute('text-anchor','end');
+    gt.setAttribute('class','wave-label');
+    gt.textContent = amp+'A';
+    gridGroup.appendChild(gt);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// PARAM TILES
+// ════════════════════════════════════════════════════════════════════════
+function buildTiles() {
+  const grid = document.getElementById('param-grid');
+  grid.innerHTML = '';
+  PARAMS.forEach(p => {
+    const tile = document.createElement('div');
+    tile.className = 'param-tile' + (activeParam===p.id?' active':'');
+    tile.dataset.id = p.id;
+    tile.innerHTML = `
+      <div class="tile-label">${p.label}</div>
+      <div class="tile-value" id="tile-val-${p.id}">${p.fmt(p.value)}</div>
+      ${p.ble ? `<div class="tile-ble">BLE CH${p.ble}</div>` : ''}
+    `;
+    tile.addEventListener('click', () => selectParam(p.id));
+    grid.appendChild(tile);
+  });
+}
+
+function updateTiles() {
+  PARAMS.forEach(p => {
+    const tile = document.querySelector(`.param-tile[data-id="${p.id}"]`);
+    if (tile) {
+      tile.className = 'param-tile' + (activeParam===p.id?' active':'');
+      const val = tile.querySelector(`#tile-val-${p.id}`);
+      if (val) val.textContent = p.fmt(p.value);
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// PARAM SELECTION + SLIDER
+// ════════════════════════════════════════════════════════════════════════
+const panel  = document.getElementById('param-panel');
+const slider = document.getElementById('param-slider');
+let writeTimer = null;
+
+function selectParam(id) {
+  const p = param(id);
+  if (!p) return;
+
+  if (activeParam === id) {
+    // toggle off
+    activeParam = null;
+    panel.classList.remove('open');
+    renderAll();
+    return;
+  }
+
+  activeParam = id;
+  document.getElementById('panel-param-name').textContent = p.label;
+  document.getElementById('slider-min').textContent = p.min + (p.unit||'');
+  document.getElementById('slider-max').textContent = p.max + (p.unit||'');
+  document.getElementById('panel-hint').textContent  = p.hint;
+
+  slider.min   = p.min / p.step;
+  slider.max   = p.max / p.step;
+  slider.step  = 1;
+  slider.value = p.value / p.step;
+
+  updateReadout(p);
+  panel.classList.add('open');
+  renderAll();
+}
+
+function updateReadout(p) {
+  document.getElementById('panel-readout').textContent = p.fmt(p.value);
+  // update track fill
+  const pct = ((p.value - p.min) / (p.max - p.min)) * 100;
+  slider.style.background = `linear-gradient(to right, var(--amber) ${pct}%, var(--muted2) ${pct}%)`;
+}
+
+slider.addEventListener('input', () => {
+  if (!activeParam) return;
+  const p  = param(activeParam);
+  p.value  = parseFloat(slider.value) * p.step;
+  updateReadout(p);
+  renderAll();
+
+  // BLE write (debounced 40ms)
+  if (p.ble) {
+    clearTimeout(writeTimer);
+    writeTimer = setTimeout(() => writeBle(p.ble, Math.round(p.value)), 40);
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// ALSO: click on param-tile for baseamp / pulsefreq / dutycycle
+// (these don't have their own SVG hit zones since they share the peak area)
+// ════════════════════════════════════════════════════════════════════════
+// They are handled via tile clicks + we add SVG zones for them below:
+function extendHitZonesForPulse(pts) {
+  const hzGroup = document.getElementById('hit-zones');
+  // Split peak plateau into thirds for baseamp / pulsefreq / dutycycle
+  const x3 = pts.x3, x4 = pts.x4;
+  const w = (x4 - x3) / 3;
+  const pulseParams = ['baseamp','pulsefreq','dutycycle'];
+  pulseParams.forEach((id, i) => {
+    const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x', x3 + i*w);
+    rect.setAttribute('y', pts.yPeak - 40);
+    rect.setAttribute('width', w);
+    rect.setAttribute('height', 40);
+    rect.setAttribute('class', 'seg-hit' + (activeParam===id?' active':''));
+    rect.setAttribute('data-id', id);
+    rect.addEventListener('click', () => selectParam(id));
+    hzGroup.appendChild(rect);
+  });
+}
+
+function renderAll() {
+  render();
+  // add pulse hit zones on top of peak plateau
+  const pts = computePoints();
+  extendHitZonesForPulse(pts);
+  updateTiles();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+buildTiles();
+renderAll();
+
+// Redraw on resize
+window.addEventListener('resize', renderAll);
+</script>
+</body>
+</html>
