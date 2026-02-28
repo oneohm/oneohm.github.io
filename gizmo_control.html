@@ -1503,12 +1503,12 @@ function onModeChange(modeStr){
 
 // Mirror of firmware SensorConfig struct (uint16 × 6, LE)
 let sensorCfgData = {
-  forceMin:    150,   // resting baseline
-  forceMax:    3800,  // full-press ceiling
-  arcThresh:   400,   // arc-start threshold
-  relThresh:   100,   // release threshold
-  wholeThresh: 700,   // all-zone press threshold
-  dirDeadband: 120,   // XY dead-band
+  forceMin:    1400,  // resting baseline  (~1400 on current prototypes)
+  forceMax:    2600,  // full-press ceiling (~2600 on current prototypes)
+  arcThresh:   1700,  // arc-start threshold
+  relThresh:   1500,  // release threshold
+  wholeThresh: 2200,  // all-zone press threshold
+  dirDeadband: 80,    // XY dead-band (tighter — narrow usable range)
 };
 
 // Restore from localStorage if available (survives disconnects)
@@ -1573,12 +1573,12 @@ function buildSensorConfigPanel(){
   if(!panel) return;
 
   const fields = [
-    { key:'forceMin',    label:'Force Floor',     min:0,    max:800,  step:5,  unit:'',  hint:'Resting/unloaded FSR output. Set by Calibrate, or drag to match your sensor.'},
-    { key:'forceMax',    label:'Force Ceiling',   min:500,  max:4095, step:10, unit:'',  hint:'ADC count at maximum deliberate press. Values above this are clamped to 100%.'},
-    { key:'arcThresh',   label:'Arc-Start Level', min:50,   max:4000, step:5,  unit:'',  hint:'Force must exceed this to start the arc in Pedal mode.'},
-    { key:'relThresh',   label:'Release Level',   min:10,   max:2000, step:5,  unit:'',  hint:'Force must drop below this to stop the arc. Keep below Arc-Start.'},
-    { key:'wholeThresh', label:'Whole-Press Level',min:200, max:4000, step:10, unit:'',  hint:'All-zone threshold for 4T latch and NAV "select" gesture.'},
-    { key:'dirDeadband', label:'Dir Dead-Band',   min:10,   max:600,  step:5,  unit:'',  hint:'XY direction noise suppression. Increase if direction triggers unintentionally.'},
+    { key:'forceMin',    label:'Force Floor',      min:800,  max:1800, step:5,  unit:'',  hint:'Unloaded/resting FSR output (~1400 on current prototypes). Hit Calibrate to set automatically.'},
+    { key:'forceMax',    label:'Force Ceiling',    min:1600, max:3200, step:10, unit:'',  hint:'ADC count at maximum deliberate press (~2600 on current prototypes). Defines 100% force.'},
+    { key:'arcThresh',   label:'Arc-Start Level',  min:800,  max:2800, step:5,  unit:'',  hint:'Force must exceed this to start the arc in Pedal mode. Set above Force Floor + some margin.'},
+    { key:'relThresh',   label:'Release Level',    min:800,  max:2600, step:5,  unit:'',  hint:'Force must drop below this to stop the arc. Keep below Arc-Start to avoid chatter.'},
+    { key:'wholeThresh', label:'Whole-Press Level', min:1600, max:3000, step:10, unit:'', hint:'All-zone threshold for 4T latch and NAV select gesture. Should be a firm deliberate press.'},
+    { key:'dirDeadband', label:'Dir Dead-Band',    min:10,   max:400,  step:5,  unit:'',  hint:'XY direction noise floor. Increase if direction triggers without intentional tilt.'},
   ];
 
   let html = `
@@ -1657,8 +1657,8 @@ function refreshSensorCfgUI(){
 }
 
 function resetSensorCfgDefaults(){
-  sensorCfgData = { forceMin:150, forceMax:3800, arcThresh:400,
-                    relThresh:100, wholeThresh:700, dirDeadband:120 };
+  sensorCfgData = { forceMin:1400, forceMax:2600, arcThresh:1700,
+                    relThresh:1500, wholeThresh:2200, dirDeadband:80 };
   refreshSensorCfgUI();
   scheduleSensorCfgPush();
   showToast('Sensor config reset');
