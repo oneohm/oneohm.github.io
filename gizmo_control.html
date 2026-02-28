@@ -402,6 +402,80 @@ input[type=range]:hover::-webkit-slider-thumb { transform:scale(1.2); }
   font-family:var(--mono); font-size:.56rem; letter-spacing:.2em;
   color:var(--muted); text-transform:uppercase;
 }
+
+/* ── SENSOR CONFIG PANEL ─────────────────────────────────────── */
+#sensor-cfg-toggle {
+  width:100%; padding:9px 16px; text-align:left;
+  font-family:var(--mono); font-size:.62rem; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--blue);
+  background:var(--panel2); border:1px solid #1a3d5e;
+  border-radius:var(--radius); cursor:pointer;
+  transition:background .2s; margin-bottom:0;
+}
+#sensor-cfg-toggle:hover { background:#091520; }
+#sensor-cfg-panel {
+  background:var(--panel); border:1px solid #1a3d5e;
+  border-top:none; border-radius:0 0 var(--radius) var(--radius);
+  max-height:0; overflow:hidden; opacity:0;
+  transition:max-height .35s cubic-bezier(.4,0,.2,1), opacity .25s;
+}
+#sensor-cfg-panel.open { max-height:640px; opacity:1; }
+.scfg-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 16px 6px;
+}
+.scfg-title {
+  font-family:var(--mono); font-size:.62rem; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--blue);
+}
+.scfg-cal-btn {
+  font-family:'Rajdhani',sans-serif; font-weight:700; font-size:.72rem;
+  letter-spacing:.08em; text-transform:uppercase;
+  padding:5px 14px; border-radius:var(--radius);
+  border:1px solid var(--blue); background:transparent; color:var(--blue);
+  cursor:pointer; transition:background .2s, color .2s;
+}
+.scfg-cal-btn:hover { background:var(--blue); color:#000; }
+.scfg-hint-bar {
+  min-height:18px; padding:2px 16px 6px;
+  font-family:var(--mono); font-size:.56rem; color:#4a6a8a;
+  letter-spacing:.05em; line-height:1.4;
+}
+.scfg-zone-bar { padding:4px 16px 10px; }
+.scfg-zone-label { font-family:var(--mono); font-size:.54rem; color:var(--muted); letter-spacing:.12em; }
+.scfg-zones { display:flex; gap:10px; margin-top:5px; }
+.scfg-zone { display:flex; align-items:center; gap:6px; flex:1; }
+.scfg-zone span { font-family:var(--mono); font-size:.55rem; color:var(--muted); min-width:14px; }
+.scfg-zbar { flex:1; height:6px; background:var(--muted2); border-radius:3px; overflow:hidden; }
+.scfg-zbar div { height:100%; width:0%; border-radius:3px; background:var(--muted); transition:width .1s, background .2s; }
+.scfg-fields { padding:4px 16px 8px; display:flex; flex-direction:column; gap:7px; }
+.scfg-row { cursor:default; }
+.scfg-row-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px; }
+.scfg-row-label { font-family:var(--mono); font-size:.58rem; color:var(--dim); letter-spacing:.08em; text-transform:uppercase; }
+.scfg-row-val { font-family:var(--mono); font-size:.72rem; color:var(--blue); min-width:36px; text-align:right; }
+.scfg-slider-wrap { display:flex; align-items:center; gap:7px; }
+.scfg-minmax { font-family:var(--mono); font-size:.5rem; color:var(--muted); min-width:28px; text-align:center; }
+.scfg-slider { -webkit-appearance:none; flex:1; height:3px; background:var(--muted2); border-radius:2px; outline:none; cursor:pointer; }
+.scfg-slider::-webkit-slider-thumb {
+  -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+  background:var(--blue); box-shadow:0 0 8px rgba(77,184,255,.4);
+  transition:transform .15s;
+}
+.scfg-slider:hover::-webkit-slider-thumb { transform:scale(1.25); }
+.scfg-footer {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:8px 16px 12px; border-top:1px solid var(--border);
+  margin-top:4px;
+}
+.scfg-footer-note { font-family:var(--mono); font-size:.52rem; color:#3a5a3a; letter-spacing:.04em; }
+.scfg-reset-btn {
+  font-family:'Rajdhani',sans-serif; font-weight:600; font-size:.65rem;
+  letter-spacing:.08em; text-transform:uppercase;
+  padding:4px 12px; border-radius:var(--radius);
+  border:1px solid var(--muted2); background:transparent; color:var(--muted);
+  cursor:pointer; transition:border-color .2s, color .2s;
+}
+.scfg-reset-btn:hover { border-color:var(--red); color:var(--red); }
 </style>
 </head>
 <body>
@@ -478,7 +552,10 @@ input[type=range]:hover::-webkit-slider-thumb { transform:scale(1.2); }
     <p class="divider-label">All parameters</p>
     <div class="tiles" id="tiles"></div>
 
-    <div class="hw-note">
+    <button id="sensor-cfg-toggle" onclick="toggleSensorCfgPanel()">▼ Sensor Config &amp; Calibration</button>
+    <div id="sensor-cfg-panel"></div>
+
+    <div class="hw-note" id="hw-note">
       <strong>Dynasty 200DX:</strong> 14-pin → Pin C: +4.5V ref · Pin D: GND · Pin E: MG24 DAC (PA6) 0–4.5V
       · Pins A+B: relay arc start · Set welder: <strong>RMT STD · Pulse OFF · Panel = max amps</strong>
     </div>
@@ -1231,7 +1308,8 @@ const UUID_SENSOR     = '12345678-1234-1234-1234-123456789ab1'; // notify 10B
 const UUID_WELD_CFG   = '12345678-1234-1234-1234-123456789ab2'; // r/w/n 18B
 const UUID_CTRL_CMD   = '12345678-1234-1234-1234-123456789ab3'; // write 2B
 const UUID_HAPTIC_CMD = '12345678-1234-1234-1234-123456789ab4'; // write 4B
-const UUID_LINK_QUAL  = '12345678-1234-1234-1234-123456789ab5'; // notify 4B
+const UUID_LINK_QUAL   = '12345678-1234-1234-1234-123456789ab5'; // notify 4B
+const UUID_SENSOR_CFG  = '12345678-1234-1234-1234-123456789ab6'; // r/w/n 12B
 
 // Haptic pattern IDs (must match sensor firmware enum)
 const HAP = { OFF:0, SOLID:1, PULSE_SLOW:2, PULSE_FAST:3,
@@ -1241,7 +1319,7 @@ const HAP = { OFF:0, SOLID:1, PULSE_SLOW:2, PULSE_FAST:3,
 const CMD = { SET_MODE:0x01, ARC_ON:0x02, ARC_OFF:0x03, SET_SHAPE:0x04, LINK_TEST:0x05 };
 
 let bleDevice=null, bleGattSvc=null;
-let charSensor=null, charWeldCfg=null, charCtrlCmd=null, charHaptic=null, charLink=null;
+let charSensor=null, charWeldCfg=null, charCtrlCmd=null, charHaptic=null, charLink=null, charSensorCfg=null;
 
 // ── Connect / Disconnect ─────────────────────────────────────
 document.getElementById('connectBtn').addEventListener('click', async()=>{
@@ -1249,7 +1327,13 @@ document.getElementById('connectBtn').addEventListener('click', async()=>{
   try{
     setStatus('SCANNING…','');
     bleDevice = await navigator.bluetooth.requestDevice({
-      filters:[{name:'TIG Force'}],
+      // Service UUID filter works on all platforms (Chrome desktop, iOS Safari).
+      // Name filter alone fails on Chrome desktop when the advertising packet
+      // doesn't include a Complete Local Name AD type.
+      filters:[
+        { services:[SVC_UUID] },          // primary — matches on any platform
+        { name:'TIG Force' },             // fallback for name-only scanners
+      ],
       optionalServices:[SVC_UUID]
     });
     bleDevice.addEventListener('gattserverdisconnected', onDisco);
@@ -1280,6 +1364,15 @@ document.getElementById('connectBtn').addEventListener('click', async()=>{
     charLink.addEventListener('characteristicvaluechanged', onLinkNotify);
     await charLink.startNotifications();
 
+    // CH5 — SENSOR_CONFIG (read / write / notify, 12 bytes)
+    try {
+      charSensorCfg = await bleGattSvc.getCharacteristic(UUID_SENSOR_CFG);
+      const cfgRaw  = await charSensorCfg.readValue();
+      parseSensorConfig(cfgRaw);
+      charSensorCfg.addEventListener('characteristicvaluechanged', e=>parseSensorConfig(e.target.value));
+      await charSensorCfg.startNotifications();
+    } catch(e){ console.warn('SensorConfig char not found:', e); }
+
     setStatus('CONNECTED · TIG Force','connected');
     document.getElementById('connectBtn').textContent='Disconnect';
 
@@ -1291,7 +1384,7 @@ document.getElementById('connectBtn').addEventListener('click', async()=>{
 });
 
 function onDisco(){
-  charSensor=charWeldCfg=charCtrlCmd=charHaptic=charLink=bleGattSvc=null;
+  charSensor=charWeldCfg=charCtrlCmd=charHaptic=charLink=charSensorCfg=bleGattSvc=null;
   setStatus('OFFLINE','');
   document.getElementById('connectBtn').textContent='Connect';
   setState(STATE.IDLE);
@@ -1309,6 +1402,12 @@ function onSensorNotify(e){
   const arcOnBle= dv.getUint8(7);
   const amps    = dv.getInt16(8,  true);
   processSensorData(force, dirX, dirY);
+  // Approximate raw zone values for the calibration zone bars
+  // (rough reconstruction from computed force/dir vector — display only)
+  const z0 = Math.max(0, force - Math.round(dirX/2) - Math.round(dirY/3));
+  const z1 = Math.max(0, force + Math.round(dirX/2) - Math.round(dirY/3));
+  const z2 = Math.max(0, force + Math.round(dirY*2/3));
+  updateZoneBars(z0, z1, z2);
   // Sync arc state from device
   if(arcOnBle && appState !== STATE.WELDING) setState(STATE.WELDING);
   if(!arcOnBle && appState === STATE.WELDING) setState(STATE.IDLE);
@@ -1399,6 +1498,195 @@ function onModeChange(modeStr){
 }
 
 // ══════════════════════════════════════════════════════════════
+//  SENSOR CONFIG — thresholds, calibration, range
+// ══════════════════════════════════════════════════════════════
+
+// Mirror of firmware SensorConfig struct (uint16 × 6, LE)
+let sensorCfgData = {
+  forceMin:    150,   // resting baseline
+  forceMax:    3800,  // full-press ceiling
+  arcThresh:   400,   // arc-start threshold
+  relThresh:   100,   // release threshold
+  wholeThresh: 700,   // all-zone press threshold
+  dirDeadband: 120,   // XY dead-band
+};
+
+// Restore from localStorage if available (survives disconnects)
+try {
+  const saved = localStorage.getItem('tigforce_sensor_cfg');
+  if(saved) sensorCfgData = {...sensorCfgData, ...JSON.parse(saved)};
+} catch(e){}
+
+// Parse 12-byte payload from BLE into sensorCfgData and update sliders
+function parseSensorConfig(dv){
+  if(dv.byteLength < 12) return;
+  sensorCfgData.forceMin    = dv.getUint16(0,  true);
+  sensorCfgData.forceMax    = dv.getUint16(2,  true);
+  sensorCfgData.arcThresh   = dv.getUint16(4,  true);
+  sensorCfgData.relThresh   = dv.getUint16(6,  true);
+  sensorCfgData.wholeThresh = dv.getUint16(8,  true);
+  sensorCfgData.dirDeadband = dv.getUint16(10, true);
+  saveSensorCfgLocal();
+  refreshSensorCfgUI();
+}
+
+function saveSensorCfgLocal(){
+  try{ localStorage.setItem('tigforce_sensor_cfg', JSON.stringify(sensorCfgData)); } catch(e){}
+}
+
+// Push sensorCfgData → device (12 bytes)
+async function pushSensorConfig(){
+  if(!charSensorCfg) return;
+  const buf = new ArrayBuffer(12);
+  const dv  = new DataView(buf);
+  dv.setUint16(0,  sensorCfgData.forceMin,    true);
+  dv.setUint16(2,  sensorCfgData.forceMax,    true);
+  dv.setUint16(4,  sensorCfgData.arcThresh,   true);
+  dv.setUint16(6,  sensorCfgData.relThresh,   true);
+  dv.setUint16(8,  sensorCfgData.wholeThresh, true);
+  dv.setUint16(10, sensorCfgData.dirDeadband, true);
+  try{ await charSensorCfg.writeValueWithoutResponse(buf); } catch(e){ console.warn('sensorCfg push:',e); }
+}
+
+let sensorCfgPushTimer = null;
+function scheduleSensorCfgPush(){
+  saveSensorCfgLocal();
+  clearTimeout(sensorCfgPushTimer);
+  sensorCfgPushTimer = setTimeout(pushSensorConfig, 100);
+}
+
+// Trigger auto-calibration on device (CMD 0x06, param = sample count)
+async function doCalibrate(){
+  // Send cmd — device will sample resting force and reply via notify
+  await sendCtrlCmd(0x06, 16);
+  // Also request a link test ping so we know the device responded
+  await sendCtrlCmd(CMD.LINK_TEST, 1);
+  showToast('Calibrating… hold sensor still');
+  sendHaptic(HAP.RAMP_UP, 70, 500);
+  document.getElementById('cal-btn').textContent = 'Calibrating…';
+  setTimeout(()=>{ document.getElementById('cal-btn').textContent = 'Calibrate (Auto)'; }, 1800);
+}
+
+// Build the sensor config panel DOM
+function buildSensorConfigPanel(){
+  const panel = document.getElementById('sensor-cfg-panel');
+  if(!panel) return;
+
+  const fields = [
+    { key:'forceMin',    label:'Force Floor',     min:0,    max:800,  step:5,  unit:'',  hint:'Resting/unloaded FSR output. Set by Calibrate, or drag to match your sensor.'},
+    { key:'forceMax',    label:'Force Ceiling',   min:500,  max:4095, step:10, unit:'',  hint:'ADC count at maximum deliberate press. Values above this are clamped to 100%.'},
+    { key:'arcThresh',   label:'Arc-Start Level', min:50,   max:4000, step:5,  unit:'',  hint:'Force must exceed this to start the arc in Pedal mode.'},
+    { key:'relThresh',   label:'Release Level',   min:10,   max:2000, step:5,  unit:'',  hint:'Force must drop below this to stop the arc. Keep below Arc-Start.'},
+    { key:'wholeThresh', label:'Whole-Press Level',min:200, max:4000, step:10, unit:'',  hint:'All-zone threshold for 4T latch and NAV "select" gesture.'},
+    { key:'dirDeadband', label:'Dir Dead-Band',   min:10,   max:600,  step:5,  unit:'',  hint:'XY direction noise suppression. Increase if direction triggers unintentionally.'},
+  ];
+
+  let html = `
+  <div class="scfg-header">
+    <span class="scfg-title">Sensor Configuration</span>
+    <button id="cal-btn" class="scfg-cal-btn" onclick="doCalibrate()">Calibrate (Auto)</button>
+  </div>
+  <div class="scfg-hint-bar" id="scfg-hint"></div>
+  <div class="scfg-zone-bar" id="scfg-zone-bar">
+    <span class="scfg-zone-label">Live zones</span>
+    <div class="scfg-zones" id="scfg-zones">
+      <div class="scfg-zone" id="sz0"><span>Z0</span><div class="scfg-zbar"><div id="szb0"></div></div></div>
+      <div class="scfg-zone" id="sz1"><span>Z1</span><div class="scfg-zbar"><div id="szb1"></div></div></div>
+      <div class="scfg-zone" id="sz2"><span>Z2</span><div class="scfg-zbar"><div id="szb2"></div></div></div>
+    </div>
+  </div>
+  <div class="scfg-fields">`;
+
+  fields.forEach(f => {
+    const pct = Math.round(((sensorCfgData[f.key] - f.min) / (f.max - f.min)) * 100);
+    html += `
+    <div class="scfg-row" data-key="${f.key}" data-hint="${f.hint}">
+      <div class="scfg-row-header">
+        <span class="scfg-row-label">${f.label}</span>
+        <span class="scfg-row-val" id="scfg-val-${f.key}">${sensorCfgData[f.key]}</span>
+      </div>
+      <div class="scfg-slider-wrap">
+        <span class="scfg-minmax">${f.min}</span>
+        <input type="range" class="scfg-slider" id="scfg-sl-${f.key}"
+               min="${f.min}" max="${f.max}" step="${f.step}"
+               value="${sensorCfgData[f.key]}"
+               style="background:linear-gradient(to right,var(--blue) ${pct}%,var(--muted2) ${pct}%)"
+               oninput="onSensorCfgSlider('${f.key}',this)">
+        <span class="scfg-minmax">${f.max}</span>
+      </div>
+    </div>`;
+  });
+
+  html += `</div>
+  <div class="scfg-footer">
+    <span class="scfg-footer-note">Changes push to device immediately · Auto-saved locally</span>
+    <button class="scfg-reset-btn" onclick="resetSensorCfgDefaults()">Reset Defaults</button>
+  </div>`;
+
+  panel.innerHTML = html;
+
+  // Wire hover hints
+  panel.querySelectorAll('.scfg-row').forEach(row => {
+    row.addEventListener('mouseenter', () => {
+      document.getElementById('scfg-hint').textContent = row.dataset.hint;
+    });
+    row.addEventListener('mouseleave', () => {
+      document.getElementById('scfg-hint').textContent = '';
+    });
+  });
+}
+
+function onSensorCfgSlider(key, el){
+  sensorCfgData[key] = parseInt(el.value);
+  const pct = Math.round(((el.value - el.min) / (el.max - el.min)) * 100);
+  el.style.background = `linear-gradient(to right,var(--blue) ${pct}%,var(--muted2) ${pct}%)`;
+  document.getElementById(`scfg-val-${key}`).textContent = el.value;
+  scheduleSensorCfgPush();
+}
+
+function refreshSensorCfgUI(){
+  Object.keys(sensorCfgData).forEach(key => {
+    const sl  = document.getElementById(`scfg-sl-${key}`);
+    const val = document.getElementById(`scfg-val-${key}`);
+    if(!sl) return;
+    sl.value = sensorCfgData[key];
+    val.textContent = sensorCfgData[key];
+    const pct = Math.round(((sl.value - sl.min) / (sl.max - sl.min)) * 100);
+    sl.style.background = `linear-gradient(to right,var(--blue) ${pct}%,var(--muted2) ${pct}%)`;
+  });
+}
+
+function resetSensorCfgDefaults(){
+  sensorCfgData = { forceMin:150, forceMax:3800, arcThresh:400,
+                    relThresh:100, wholeThresh:700, dirDeadband:120 };
+  refreshSensorCfgUI();
+  scheduleSensorCfgPush();
+  showToast('Sensor config reset');
+}
+
+// Feed live zone values into the zone bars (called from processSensorData extension)
+function updateZoneBars(z0, z1, z2){
+  ['szb0','szb1','szb2'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    const v = [z0,z1,z2][i];
+    const pct = Math.min(100, Math.round(v / 40.95));
+    const overArc = v > sensorCfgData.arcThresh;
+    el.style.width = pct + '%';
+    el.style.background = overArc ? 'var(--green)' : (v > sensorCfgData.forceMin + 30 ? 'var(--amber)' : 'var(--muted)');
+  });
+}
+
+// Sensor config panel toggle
+function toggleSensorCfgPanel(){
+  const panel = document.getElementById('sensor-cfg-panel');
+  const btn   = document.getElementById('sensor-cfg-toggle');
+  const open  = panel.classList.toggle('open');
+  btn.textContent = open ? '▲ Sensor Config' : '▼ Sensor Config';
+  if(open && !panel.innerHTML.trim()) buildSensorConfigPanel();
+}
+
+// ══════════════════════════════════════════════════════════════
 //  DEMO MODE — simulate sensor with mouse/touch on canvas
 //  (so you can test the UI without hardware)
 // ══════════════════════════════════════════════════════════════
@@ -1413,6 +1701,11 @@ function canvasEventToSensor(cx, cy, canvasRect){
   const dirX   = Math.round((relX / maxDist) * 512);
   const dirY   = Math.round((relY / maxDist) * 512);
   processSensorData(force, dirX, dirY);
+  // Simulate zone bars in demo mode
+  const simZ0 = Math.max(0, force - Math.round(dirX/2));
+  const simZ1 = Math.max(0, force + Math.round(dirX/2));
+  const simZ2 = Math.max(0, force + Math.round(dirY/2));
+  updateZoneBars(simZ0, simZ1, simZ2);
 }
 
 svCanvas.addEventListener('mousemove', e=>{
@@ -1459,6 +1752,7 @@ updateGestureMap();
 updateSensorViz();
 window.addEventListener('resize', renderDiagram);
 
+buildSensorConfigPanel();
 showToast('Demo mode — drag sensor circle or connect TIG Force');
 </script>
 </body>
