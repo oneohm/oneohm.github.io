@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>TIG FORCE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap');
+
+/* ══════════════════════════════════════════
+   DESIGN TOKENS
+══════════════════════════════════════════ */
+:root {
+  --bg:         #0c0c0c;
+  --panel:      #131313;
+  --panel2:     #171717;
+  --border:     #232323;
+  --border2:    #2c2c2c;
+  --amber:      #ff8c00;
+  --amber2:     #ffb347;
+  --amberDim:   #6a3800;
+  --amberGlow:  rgba(255,140,0,.22);
+  --white:      #e8e8e8;
+  --dim:        #888;
+  --muted:      #555;
+  --muted2:     #2a2a2a;
+  --green:      #3ddc84;
+  --greenDim:   #1a5c38;
+  --red:        #ff4444;
+  --blue:       #4db8ff;
+  --cyan:       #00e5cc;
+  --mono:       'Share Tech Mono', monospace;
+  --radius:     4px;
+
+  /* State colours */
+  --idle-accent:   #ff8c00;
+  --nav-accent:    #4db8ff;
+  --weld-accent:   #3ddc84;
+}
+
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+html { height:100%; font-size:16px; }
+body {
+  height:100%; background:var(--bg); color:var(--white);
+  font-family:'Rajdhani', sans-serif;
+  overflow-x:hidden; overflow-y:auto;
+  transition: --state-color .3s;
+}
+
+/* Scanline texture */
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,
+    rgba(0,0,0,.05) 3px, rgba(0,0,0,.05) 4px);
+}
+
+/* ══════════════════════════════════════════
+   HEADER
+══════════════════════════════════════════ */
+#header {
+  position:relative; z-index:100;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 20px; border-bottom:1px solid var(--border);
+  background:var(--panel);
+  transition: border-color .4s;
+}
+.brand { display:flex; align-items:baseline; gap:10px; }
+.brand-name {
+  font-size:1.5rem; font-weight:700; letter-spacing:.14em;
+  color:var(--amber); text-transform:uppercase;
+  text-shadow:0 0 20px rgba(255,140,0,.4);
+}
+.brand-sub { font-family:var(--mono); font-size:.58rem; color:var(--muted); letter-spacing:.18em; }
+
+/* State badge — prominent indicator of current app state */
+#state-badge {
+  display:flex; align-items:center; gap:12px;
+}
+#state-dot {
+  width:10px; height:10px; border-radius:50%;
+  background:var(--muted); box-shadow:none;
+  transition: background .3s, box-shadow .3s;
+}
+#state-label {
+  font-family:var(--mono); font-size:.68rem; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--muted);
+  transition: color .3s;
+}
+
+/* BLE */
+.ble-row { display:flex; align-items:center; gap:8px; }
+#status-pill {
+  font-family:var(--mono); font-size:.58rem; letter-spacing:.1em;
+  padding:3px 10px; border-radius:2px;
+  border:1px solid var(--muted2); color:var(--muted);
+  transition:all .3s; white-space:nowrap;
+}
+#status-pill.connected { border-color:var(--green); color:var(--green); }
+#status-pill.error     { border-color:var(--red); color:var(--red); }
+#connectBtn {
+  font-family:'Rajdhani',sans-serif; font-weight:700; font-size:.75rem;
+  letter-spacing:.1em; text-transform:uppercase;
+  padding:6px 16px; border-radius:var(--radius);
+  border:1px solid var(--amber); background:transparent; color:var(--amber);
+  cursor:pointer; transition:background .2s, color .2s, box-shadow .2s;
+  white-space:nowrap;
+}
+#connectBtn:hover { background:var(--amber); color:#000; box-shadow:0 0 14px var(--amberGlow); }
+
+/* ══════════════════════════════════════════
+   BODY LAYOUT — two columns on wide screens
+══════════════════════════════════════════ */
+#app {
+  position:relative; z-index:1;
+  display:grid;
+  grid-template-columns: 1fr 340px;
+  grid-template-rows: auto 1fr;
+  gap:0;
+  min-height:calc(100vh - 53px);
+}
+@media(max-width:860px){ #app{ grid-template-columns:1fr; } }
+
+/* ══════════════════════════════════════════
+   LEFT — WAVEFORM + PARAMS
+══════════════════════════════════════════ */
+#left-col {
+  padding:16px 16px 80px;
+  display:flex; flex-direction:column; gap:12px;
+  border-right:1px solid var(--border);
+}
+
+.sec-label {
+  font-family:var(--mono); font-size:.56rem; letter-spacing:.2em;
+  color:var(--muted); text-transform:uppercase;
+}
+
+/* Shape selector */
+.shape-row { display:flex; gap:6px; flex-wrap:wrap; }
+.sh-btn {
+  flex:1; min-width:90px;
+  background:var(--panel2); border:1px solid var(--border2);
+  border-radius:var(--radius); padding:7px 8px;
+  cursor:pointer; transition:border-color .2s, background .2s;
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+}
+.sh-btn.active { border-color:var(--amber); background:#1c1500; }
+.sh-btn svg { width:60px; height:24px; }
+.sh-name { font-family:var(--mono); font-size:.58rem; color:var(--muted); transition:color .2s; }
+.sh-btn.active .sh-name { color:var(--amber); }
+
+/* Waveform SVG */
+#wf-wrap {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:var(--radius); padding:12px 10px 6px;
+}
+#wf-svg { width:100%; height:200px; display:block; }
+
+.seg-hit { fill:transparent; cursor:pointer; }
+.seg-hit:hover  { fill:rgba(255,140,0,.06); }
+.seg-hit.active { fill:rgba(255,140,0,.12); }
+/* Nav-mode highlight */
+.seg-hit.nav-focus { fill:rgba(77,184,255,.14); stroke:var(--blue); stroke-width:1; }
+
+.wave-path  { fill:none; stroke:var(--white); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+.pulse-path { fill:none; stroke:var(--amber2); stroke-width:1.8; stroke-linejoin:miter; }
+.base-line  { stroke:#444; stroke-width:1; stroke-dasharray:4 4; }
+.wgrid-line { stroke:#1c1c1c; stroke-width:1; stroke-dasharray:3 6; }
+.wlabel { font-family:var(--mono); font-size:9px; fill:#444; pointer-events:none; }
+.wvalue { font-family:var(--mono); font-size:11px; font-weight:bold; fill:var(--white); pointer-events:none; }
+.wlabel.active, .wvalue.active { fill:var(--amber); }
+.wlabel.nav, .wvalue.nav { fill:var(--blue); }
+.wdot { fill:#555; pointer-events:none; }
+.wdot.active { fill:var(--amber); }
+
+/* Param editor slide-in */
+#param-panel {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:var(--radius); overflow:hidden;
+  max-height:0; opacity:0;
+  transition:max-height .3s cubic-bezier(.4,0,.2,1), opacity .25s;
+}
+#param-panel.open { max-height:160px; opacity:1; }
+.pi { padding:14px 20px 16px; display:flex; flex-direction:column; gap:8px; }
+.pi-header { display:flex; justify-content:space-between; align-items:baseline; }
+.pi-name { font-size:1rem; font-weight:700; letter-spacing:.1em; color:var(--amber); text-transform:uppercase; }
+.pi-readout { font-family:var(--mono); font-size:1.4rem; color:var(--amber); min-width:80px; text-align:right; }
+.slider-row { display:flex; align-items:center; gap:10px; }
+.slider-row span { font-family:var(--mono); font-size:.58rem; color:var(--muted); min-width:30px; text-align:center; }
+input[type=range] {
+  -webkit-appearance:none; flex:1; height:4px;
+  background:var(--muted2); border-radius:2px; outline:none; cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+  background:var(--amber); box-shadow:0 0 10px rgba(255,140,0,.5);
+  transition:transform .15s;
+}
+input[type=range]:hover::-webkit-slider-thumb { transform:scale(1.2); }
+.pi-hint {
+  font-family:var(--mono); font-size:.56rem; color:#484848;
+  letter-spacing:.06em; border-top:1px solid var(--border);
+  padding-top:7px; line-height:1.5;
+}
+
+/* Param tiles grid */
+.tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+@media(max-width:500px){ .tiles{ grid-template-columns:repeat(2,1fr); } }
+.ptile {
+  background:var(--panel2); border:1px solid var(--border2);
+  border-radius:var(--radius); padding:8px 10px;
+  cursor:pointer; transition:border-color .2s, background .2s;
+  display:flex; flex-direction:column; gap:2px;
+}
+.ptile:hover  { border-color:var(--amberDim); }
+.ptile.active { border-color:var(--amber); background:#1a1400; }
+.ptile.nav-focus { border-color:var(--blue); background:#091520; }
+.pt-label { font-family:var(--mono); font-size:.54rem; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; }
+.pt-value { font-size:1.05rem; font-weight:700; color:var(--white); }
+.ptile.active .pt-value { color:var(--amber); }
+.ptile.nav-focus .pt-value { color:var(--blue); }
+.pt-ble { font-family:var(--mono); font-size:.48rem; color:var(--amberDim); margin-top:2px; }
+.ptile.active .pt-ble { color:var(--amber); }
+
+/* ══════════════════════════════════════════
+   RIGHT PANEL — SENSOR + STATE
+══════════════════════════════════════════ */
+#right-col {
+  display:flex; flex-direction:column; gap:0;
+  background:var(--panel);
+}
+
+/* ── ARC / WELD STATE DISPLAY ── */
+#arc-display {
+  padding:20px; border-bottom:1px solid var(--border);
+  display:flex; flex-direction:column; gap:12px;
+  transition: background .4s;
+}
+#arc-display.welding { background:#050f08; }
+
+#amp-display {
+  text-align:center;
+}
+#amp-big {
+  font-family:var(--mono); font-size:4.5rem; font-weight:bold;
+  color:var(--muted2); line-height:1; letter-spacing:-.02em;
+  transition: color .3s, text-shadow .3s;
+}
+#amp-big.live {
+  color:var(--green);
+  text-shadow:0 0 30px rgba(61,220,132,.4);
+}
+#amp-unit { font-family:var(--mono); font-size:.8rem; color:var(--muted); letter-spacing:.12em; margin-top:4px; }
+
+/* Arc state info row */
+#arc-info {
+  display:flex; justify-content:space-between; align-items:center;
+}
+#arc-state-label {
+  font-family:var(--mono); font-size:.7rem; letter-spacing:.14em;
+  color:var(--muted); text-transform:uppercase;
+}
+#arc-state-label.welding { color:var(--green); }
+
+/* Amp bar */
+#amp-bar-wrap { position:relative; height:8px; background:var(--muted2); border-radius:4px; overflow:hidden; }
+#amp-bar { height:100%; width:0%; background:var(--green); border-radius:4px; transition:width .08s linear; }
+
+/* ── SENSOR VISUALIZER ── */
+#sensor-viz {
+  padding:16px 20px; border-bottom:1px solid var(--border);
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+}
+.sv-label { font-family:var(--mono); font-size:.56rem; color:var(--muted); letter-spacing:.18em; text-transform:uppercase; }
+
+#sv-canvas-wrap {
+  position:relative; width:160px; height:160px;
+}
+#sv-canvas { width:160px; height:160px; border-radius:50%; display:block; }
+
+.sv-force-readout {
+  font-family:var(--mono); font-size:.9rem; color:var(--dim); letter-spacing:.08em;
+}
+.sv-force-readout span { color:var(--white); font-size:1.1rem; }
+
+/* ── SENSOR CONTROL MODE ── */
+#mode-panel {
+  padding:14px 20px 12px; border-bottom:1px solid var(--border);
+  display:flex; flex-direction:column; gap:8px;
+}
+.mode-label { font-family:var(--mono); font-size:.56rem; color:var(--muted); letter-spacing:.18em; text-transform:uppercase; }
+
+#mode-tabs { display:flex; gap:6px; }
+.mode-tab {
+  flex:1; padding:8px 6px; text-align:center;
+  font-family:var(--mono); font-size:.62rem; letter-spacing:.08em;
+  text-transform:uppercase; border-radius:var(--radius);
+  border:1px solid var(--border2); background:var(--muted2);
+  cursor:pointer; color:var(--muted); transition:all .2s;
+}
+.mode-tab.active-pedal { border-color:var(--green); background:#0c1f14; color:var(--green); }
+.mode-tab.active-4t    { border-color:var(--amber); background:#1a1400; color:var(--amber); }
+.mode-tab.active-nav   { border-color:var(--blue);  background:#091520; color:var(--blue); }
+
+/* ── GESTURE MAP / QUICK REF ── */
+#gesture-ref {
+  padding:14px 20px 16px;
+  display:flex; flex-direction:column; gap:8px;
+  flex:1;
+}
+.gr-title { font-family:var(--mono); font-size:.56rem; color:var(--muted); letter-spacing:.18em; text-transform:uppercase; }
+.gr-state-header {
+  font-family:var(--mono); font-size:.62rem; letter-spacing:.1em;
+  padding:4px 8px; border-radius:2px; margin-top:4px;
+}
+.gr-state-header.idle   { background:#1a1400; color:var(--amber); border:1px solid var(--amberDim); }
+.gr-state-header.nav    { background:#091520; color:var(--blue);  border:1px solid #1a3d5e; }
+.gr-state-header.weld   { background:#050f08; color:var(--green); border:1px solid var(--greenDim); }
+
+.gesture-list { display:flex; flex-direction:column; gap:5px; }
+.gesture-row {
+  display:flex; align-items:flex-start; gap:8px;
+  font-family:var(--mono); font-size:.6rem; line-height:1.4;
+  padding:5px 0; border-bottom:1px solid var(--border);
+}
+.gesture-row:last-child { border-bottom:none; }
+.gesture-icon {
+  min-width:28px; text-align:center;
+  font-size:.85rem; color:var(--white); margin-top:1px;
+}
+.gesture-action { color:var(--white); letter-spacing:.04em; }
+.gesture-effect { color:var(--muted); display:block; font-size:.56rem; margin-top:2px; }
+
+/* ══════════════════════════════════════════
+   WELD MODE OVERLAY
+   Full-screen takeover during active weld
+══════════════════════════════════════════ */
+#weld-overlay {
+  display:none;
+  position:fixed; inset:0; z-index:500;
+  background:#000;
+  flex-direction:column; align-items:center; justify-content:center;
+  gap:16px;
+}
+#weld-overlay.active { display:flex; }
+
+#wo-amp {
+  font-family:var(--mono); font-size:min(22vw,180px); font-weight:bold;
+  color:var(--green); line-height:1;
+  text-shadow:0 0 60px rgba(61,220,132,.5);
+  transition: color .1s, text-shadow .1s;
+}
+#wo-unit { font-family:var(--mono); font-size:3rem; color:var(--dim); }
+#wo-shape {
+  font-family:var(--mono); font-size:1.1rem; color:var(--dim);
+  letter-spacing:.18em; text-transform:uppercase;
+}
+#wo-bar-wrap { width:min(80vw,500px); height:12px; background:#1a1a1a; border-radius:6px; overflow:hidden; }
+#wo-bar { height:100%; width:0%; background:var(--green); border-radius:6px; transition:width .06s; }
+#wo-hint {
+  font-family:var(--mono); font-size:.7rem; color:#333;
+  letter-spacing:.14em; text-transform:uppercase;
+}
+#wo-state-ring {
+  position:absolute; inset:0; border:3px solid transparent;
+  border-radius:0; pointer-events:none; transition:border-color .3s;
+}
+#weld-overlay.active #wo-state-ring { border-color:rgba(61,220,132,.25); }
+
+/* Trim indicator (shows when tilting up/down during weld) */
+#trim-indicator {
+  display:none; flex-direction:column; align-items:center; gap:6px;
+}
+#trim-indicator.visible { display:flex; }
+#trim-label { font-family:var(--mono); font-size:.75rem; color:var(--amber); letter-spacing:.14em; }
+#trim-value { font-family:var(--mono); font-size:1.8rem; color:var(--amber); }
+
+/* ══════════════════════════════════════════
+   TOAST / FEEDBACK
+══════════════════════════════════════════ */
+#toast {
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:#1c1c1c; border:1px solid var(--border2);
+  border-radius:var(--radius); padding:10px 20px;
+  font-family:var(--mono); font-size:.68rem; letter-spacing:.1em;
+  color:var(--white); z-index:600; opacity:0;
+  transition:opacity .25s, transform .25s;
+  white-space:nowrap;
+}
+#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* HW note */
+.hw-note {
+  background:#0d1208; border:1px solid #252d15;
+  border-radius:var(--radius); padding:10px 14px;
+  font-family:var(--mono); font-size:.58rem; color:#5a6a3a;
+  letter-spacing:.05em; line-height:1.7;
+}
+.hw-note strong { color:#8aaa4a; }
+
+/* Divider labels */
+.divider-label {
+  font-family:var(--mono); font-size:.56rem; letter-spacing:.2em;
+  color:var(--muted); text-transform:uppercase;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ WELD OVERLAY ════════════════════════════════════════════ -->
+<div id="weld-overlay">
+  <div id="wo-state-ring"></div>
+  <div id="wo-shape" id="wo-shape-label">PULSE · SQUARE</div>
+  <div id="wo-amp">0</div>
+  <div id="wo-unit">AMPS</div>
+  <div id="wo-bar-wrap"><div id="wo-bar"></div></div>
+  <div id="trim-indicator">
+    <div id="trim-label">▲ PEAK TRIM</div>
+    <div id="trim-value">+0A</div>
+  </div>
+  <div id="wo-hint">RELEASE SENSOR · END ARC</div>
+</div>
+
+<!-- ═══ TOAST ═══════════════════════════════════════════════════ -->
+<div id="toast"></div>
+
+<!-- ═══ HEADER ══════════════════════════════════════════════════ -->
+<div id="header">
+  <div class="brand">
+    <span class="brand-name">TIG FORCE</span>
+    <span class="brand-sub">Dynasty 200DX</span>
+  </div>
+  <div id="state-badge">
+    <div id="state-dot"></div>
+    <span id="state-label">IDLE</span>
+  </div>
+  <div class="ble-row">
+    <span id="status-pill">OFFLINE</span>
+    <button id="connectBtn">Connect</button>
+  </div>
+</div>
+
+<!-- ═══ APP BODY ═════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- ── LEFT COL ───────────────────────────────────────────── -->
+  <div id="left-col">
+
+    <p class="divider-label">Pulse waveform shape</p>
+    <div class="shape-row" id="shape-row"></div>
+
+    <p class="divider-label">Weld sequence — tap or navigate with sensor</p>
+    <div id="wf-wrap">
+      <svg id="wf-svg" viewBox="0 0 860 200" preserveAspectRatio="xMidYMid meet">
+        <g id="wf-grid"></g>
+        <path id="wf-main" class="wave-path"/>
+        <path id="wf-pulse" class="pulse-path"/>
+        <line id="wf-base-line" class="base-line"/>
+        <g id="wf-hits"></g>
+        <g id="wf-ann"></g>
+      </svg>
+    </div>
+
+    <div id="param-panel">
+      <div class="pi">
+        <div class="pi-header">
+          <span class="pi-name" id="pi-name">—</span>
+          <span class="pi-readout" id="pi-readout">—</span>
+        </div>
+        <div class="slider-row">
+          <span id="sl-min">0</span>
+          <input type="range" id="main-slider" min="0" max="100" value="50">
+          <span id="sl-max">100</span>
+        </div>
+        <div class="pi-hint" id="pi-hint"></div>
+      </div>
+    </div>
+
+    <p class="divider-label">All parameters</p>
+    <div class="tiles" id="tiles"></div>
+
+    <div class="hw-note">
+      <strong>Dynasty 200DX:</strong> 14-pin → Pin C: +4.5V ref · Pin D: GND · Pin E: MG24 DAC (PA6) 0–4.5V
+      · Pins A+B: relay arc start · Set welder: <strong>RMT STD · Pulse OFF · Panel = max amps</strong>
+    </div>
+  </div>
+
+  <!-- ── RIGHT COL ──────────────────────────────────────────── -->
+  <div id="right-col">
+
+    <!-- Arc display -->
+    <div id="arc-display">
+      <div id="amp-display">
+        <div id="amp-big">—</div>
+        <div id="amp-unit">AMPS</div>
+      </div>
+      <div id="amp-bar-wrap"><div id="amp-bar"></div></div>
+      <div id="arc-info">
+        <span id="arc-state-label">ARC OFF</span>
+        <span style="font-family:var(--mono);font-size:.6rem;color:var(--muted)" id="arc-mode-label">2T MODE</span>
+      </div>
+    </div>
+
+    <!-- Sensor visualizer -->
+    <div id="sensor-viz">
+      <div class="sv-label">TIG Force Sensor</div>
+      <div id="sv-canvas-wrap">
+        <canvas id="sv-canvas" width="160" height="160"></canvas>
+      </div>
+      <div class="sv-force-readout">Force: <span id="sv-force-val">—</span> · Dir: <span id="sv-dir-val">CENTER</span></div>
+    </div>
+
+    <!-- Sensor operating mode -->
+    <div id="mode-panel">
+      <div class="mode-label">Sensor Control Mode</div>
+      <div id="mode-tabs">
+        <div class="mode-tab" data-mode="pedal">Pedal</div>
+        <div class="mode-tab" data-mode="4t">4T</div>
+        <div class="mode-tab" data-mode="nav">Nav</div>
+      </div>
+    </div>
+
+    <!-- Gesture reference -->
+    <div id="gesture-ref">
+      <div class="gr-title">Sensor Interaction Map</div>
+      <div id="gesture-map"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════════
+//  WAVEFORM SHAPES
+// ══════════════════════════════════════════════════════════════
+const SHAPES = [
+  { id:'square', label:'Square',
+    icon:(w,h)=>`M0,${h} L0,0 L${w},0 L${w},${h}`,
+    pulse:(x0,x1,yP,yB,n,dc)=>{
+      let d='',cw=(x1-x0)/n,on=cw*dc;
+      for(let i=0;i<n;i++){let x=x0+i*cw; d+=`M${x},${yP}L${x+on},${yP}L${x+on},${yB}L${x+cw},${yB}L${x+cw},${yP}`;}
+      return d;
+    }
+  },
+  { id:'triangle', label:'Triangle',
+    icon:(w,h)=>`M0,${h} L${w/2},0 L${w},${h}`,
+    pulse:(x0,x1,yP,yB,n,dc)=>{
+      let d='',cw=(x1-x0)/n;
+      for(let i=0;i<n;i++){let x=x0+i*cw,hw=cw/2;
+        d+=`M${x},${yB}L${x+hw*dc},${yP}L${x+cw},${yB}`;}
+      return d;
+    }
+  },
+  { id:'sine', label:'Sine',
+    icon:(w,h)=>{let p=`M0,${h/2}`;for(let i=1;i<=40;i++){let t=i/40,x=t*w,y=h/2-Math.sin(t*Math.PI*2)*h/2;p+=`L${x},${y}`;}return p;},
+    pulse:(x0,x1,yP,yB,n,dc)=>{
+      let mid=(yP+yB)/2,amp=(yB-yP)/2,p=`M${x0},${mid}`,steps=50*n,tw=x1-x0;
+      for(let i=1;i<=steps;i++){let t=i/steps,x=x0+t*tw,y=mid-Math.sin(t*Math.PI*2*n)*amp;p+=`L${x.toFixed(1)},${y.toFixed(1)}`;}
+      return p;
+    }
+  },
+  { id:'sawtooth', label:'Saw',
+    icon:(w,h)=>`M0,0 L${w},${h} M${w},${h} L${w},0`,
+    pulse:(x0,x1,yP,yB,n,dc)=>{
+      let d='',cw=(x1-x0)/n;
+      for(let i=0;i<n;i++){let x=x0+i*cw; d+=`M${x},${yP}L${x+cw},${yB}L${x+cw},${yP}`;}
+      return d;
+    }
+  },
+  { id:'softSquare', label:'Soft Sq',
+    icon:(w,h)=>{let s=w*.15;return `M0,${h}L${s},0L${w-s},0L${w},${h}`;},
+    pulse:(x0,x1,yP,yB,n,dc)=>{
+      let d='',cw=(x1-x0)/n,on=cw*dc,off=cw*(1-dc),sl=cw*.1;
+      for(let i=0;i<n;i++){let x=x0+i*cw;
+        d+=`M${x},${yB}L${x+sl},${yP}L${x+on-sl},${yP}L${x+on},${yB}L${x+on+sl},${yP}L${x+cw-sl},${yP}L${x+cw},${yB}`;}
+      return d;
+    }
+  },
+];
+let activeShape = SHAPES[0];
+
+// ══════════════════════════════════════════════════════════════
+//  PARAMETERS
+// ══════════════════════════════════════════════════════════════
+const PARAMS = [
+  {id:'preflow',  label:'Pre-Flow',    unit:'s',  min:0,   max:10,  step:.1, value:0.5, fmt:v=>`${v.toFixed(1)}s`, ble:null,hint:'Shielding gas before arc. 0.3–1.0s typical.'},
+  {id:'startamp', label:'Start Amps',  unit:'A',  min:1,   max:200, step:1,  value:25,  fmt:v=>`${v}A`,            ble:null,hint:'Strike current. 10–30% of peak prevents contamination.'},
+  {id:'rampup',   label:'Ramp Up',     unit:'s',  min:0,   max:10,  step:.1, value:1.2, fmt:v=>`${v.toFixed(1)}s`, ble:null,hint:'Upslope to peak. Longer = gentler heat input.'},
+  {id:'peakamp',  label:'Peak Amps',   unit:'A',  min:1,   max:200, step:1,  value:120, fmt:v=>`${v}A`,            ble:1,   hint:'BLE CH1 → DAC → Pin E. Main welding current.'},
+  {id:'baseamp',  label:'Base Amps',   unit:'A',  min:1,   max:200, step:1,  value:40,  fmt:v=>`${v}A`,            ble:2,   hint:'BLE CH2. Pulse low amps. 25–50% of peak.'},
+  {id:'pulsefreq',label:'Pulse Freq',  unit:'Hz', min:0,   max:500, step:1,  value:1,   fmt:v=>v===0?'OFF':`${v}Hz`,ble:3, hint:'BLE CH3. 0=off. <2Hz=rhythm, 2–20Hz=heat ctrl, 100Hz+=arc stiffness.'},
+  {id:'dutycycle',label:'Duty Cycle',  unit:'%',  min:5,   max:95,  step:1,  value:50,  fmt:v=>`${v}%`,            ble:4,   hint:'BLE CH4. % time at Peak. <50% = lower avg heat.'},
+  {id:'rampdown', label:'Ramp Down',   unit:'s',  min:0,   max:15,  step:.1, value:2.5, fmt:v=>`${v.toFixed(1)}s`, ble:null,hint:'Crater fill downslope. Prevents crater cracks on aluminium.'},
+  {id:'postflow', label:'Post-Flow',   unit:'s',  min:0,   max:30,  step:.5, value:8.0, fmt:v=>`${v.toFixed(1)}s`, ble:null,hint:'Post-arc gas. ~1s per 10A of peak current.'},
+];
+const ORDERED_PARAM_IDS = PARAMS.map(p=>p.id);
+function pp(id){ return PARAMS.find(p=>p.id===id); }
+function pv(id){ return pp(id).value; }
+
+// ══════════════════════════════════════════════════════════════
+//  SENSOR STATE MODEL
+// ══════════════════════════════════════════════════════════════
+// sensorData is updated by BLE notifications or the demo simulator
+const sensor = {
+  force:     0,    // 0–1023
+  dirX:      0,    // -512..+512  (negative = left)
+  dirY:      0,    // -512..+512  (negative = up / reduce amps)
+  rawGesture: null // 'UP','DOWN','LEFT','RIGHT','CENTER','WHOLE'
+};
+
+// Control modes
+const MODE = { PEDAL:'pedal', FOUR_T:'4t', NAV:'nav' };
+let controlMode = MODE.PEDAL;
+
+// App states
+const STATE = { IDLE:'idle', NAV:'nav', WELDING:'welding', RAMPING_UP:'rampup', RAMPING_DOWN:'rampdown' };
+let appState = STATE.IDLE;
+
+// Weld state
+let arcOn = false;
+let currentAmps = 0;         // live displayed amps
+let peakTrim = 0;            // live trim offset during weld (−50 to +50A)
+let trimActive = false;
+
+// Navigation state
+let navIndex = 0;            // index into ORDERED_PARAM_IDS
+let lastNavGesture = null;
+let navGestureTimer = null;
+let navAdjusting = false;    // true when holding up/down to adjust value
+
+// Gesture debounce
+let gestureHoldTimer = null;
+const GESTURE_HOLD_MS   = 400;  // hold to trigger continuous adjust
+const GESTURE_TAP_FORCE = 80;   // force threshold to register a tap
+const ARC_START_FORCE   = 600;  // force threshold to start arc (pedal mode)
+const ARC_STOP_RELEASE  = 60;   // force below this = arc stop
+
+// ══════════════════════════════════════════════════════════════
+//  STATE MACHINE
+// ══════════════════════════════════════════════════════════════
+function setState(s){
+  appState = s;
+  const dot   = document.getElementById('state-dot');
+  const label = document.getElementById('state-label');
+  const arcDsp = document.getElementById('arc-display');
+  const arcLabel = document.getElementById('arc-state-label');
+  const weldOverlay = document.getElementById('weld-overlay');
+
+  switch(s){
+    case STATE.IDLE:
+      dot.style.background = 'var(--muted)';
+      dot.style.boxShadow  = 'none';
+      label.style.color    = 'var(--muted)';
+      label.textContent    = 'IDLE';
+      arcDsp.classList.remove('welding');
+      arcLabel.textContent = 'ARC OFF';
+      arcLabel.className   = 'arc-state-label';
+      document.getElementById('amp-big').classList.remove('live');
+      document.getElementById('amp-big').textContent = '—';
+      weldOverlay.classList.remove('active');
+      peakTrim = 0;
+      trimActive = false;
+      break;
+
+    case STATE.WELDING:
+      dot.style.background = 'var(--green)';
+      dot.style.boxShadow  = '0 0 10px rgba(61,220,132,.6)';
+      label.style.color    = 'var(--green)';
+      label.textContent    = 'WELDING';
+      arcDsp.classList.add('welding');
+      arcLabel.textContent = 'ARC ON';
+      arcLabel.className   = 'arc-state-label welding';
+      document.getElementById('amp-big').classList.add('live');
+      weldOverlay.classList.add('active');
+      updateWeldShapeLabel();
+      break;
+
+    case STATE.NAV:
+      dot.style.background = 'var(--blue)';
+      dot.style.boxShadow  = '0 0 10px rgba(77,184,255,.5)';
+      label.style.color    = 'var(--blue)';
+      label.textContent    = 'NAV MODE';
+      break;
+  }
+
+  renderDiagram();
+  updateTiles();
+  updateGestureMap();
+}
+
+function updateWeldShapeLabel(){
+  const freq = pv('pulsefreq');
+  const shp  = freq > 0 ? `PULSE · ${activeShape.label.toUpperCase()}` : 'CONTINUOUS';
+  const el   = document.getElementById('wo-shape');
+  if(el) el.textContent = shp;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SENSOR PROCESSING
+// ══════════════════════════════════════════════════════════════
+function processSensorData(force, dirX, dirY){
+  sensor.force = force;
+  sensor.dirX  = dirX;
+  sensor.dirY  = dirY;
+
+  // Classify direction
+  const DEAD = 80;
+  let dir = 'CENTER';
+  if(Math.abs(dirY) > Math.abs(dirX)){
+    if(dirY < -DEAD) dir = 'UP';
+    else if(dirY > DEAD) dir = 'DOWN';
+  } else {
+    if(dirX < -DEAD) dir = 'LEFT';
+    else if(dirX > DEAD) dir = 'RIGHT';
+  }
+  // 'WHOLE' = high force with no clear direction bias (all-pad press)
+  if(force > ARC_START_FORCE && Math.abs(dirX) < DEAD && Math.abs(dirY) < DEAD) dir = 'WHOLE';
+  sensor.rawGesture = dir;
+
+  updateSensorViz();
+  document.getElementById('sv-force-val').textContent = force;
+  document.getElementById('sv-dir-val').textContent   = dir;
+
+  // Route to correct handler
+  switch(controlMode){
+    case MODE.PEDAL:  handlePedalMode(force, dir); break;
+    case MODE.FOUR_T: handleFourTMode(force, dir); break;
+    case MODE.NAV:    handleNavMode(force, dir);   break;
+  }
+}
+
+// ── PEDAL MODE ────────────────────────────────────────────────
+// Pure analog: press = amps. Like a foot pedal on your finger.
+// Up/Down tilt during weld = peak trim ±
+function handlePedalMode(force, dir){
+  if(force < ARC_STOP_RELEASE){
+    if(arcOn) stopArc();
+    return;
+  }
+  if(!arcOn) startArc();
+
+  // Map force to amps (start → peak)
+  const startA = pv('startamp'), peakA = pv('peakamp') + peakTrim;
+  const ratio   = Math.min(1, (force - ARC_STOP_RELEASE) / (1023 - ARC_STOP_RELEASE));
+  currentAmps   = Math.round(startA + ratio * (peakA - startA));
+  updateAmpDisplay(currentAmps, peakA);
+
+  // Tilt up/down to trim peak while welding
+  if(appState === STATE.WELDING){
+    if(dir === 'UP')  { peakTrim = Math.min(50, peakTrim + 0.5); setTrim(true); }
+    if(dir === 'DOWN'){ peakTrim = Math.max(-pv('peakamp')+10, peakTrim - 0.5); setTrim(true); }
+    if(dir === 'CENTER') setTrim(false);
+  }
+}
+
+// ── 4T MODE ───────────────────────────────────────────────────
+// Press once (WHOLE/full force) = arc on, hold = adjust amps
+// Press again (WHOLE/full force) = arc off
+// Up/Down = amp adjustment at any time
+let fourT_Latched = false;
+let fourT_PressedLast = false;
+function handleFourTMode(force, dir){
+  const isFullPress = force > ARC_START_FORCE && dir === 'WHOLE';
+
+  // Latch toggle on full-press edge (rising edge only)
+  if(isFullPress && !fourT_PressedLast){
+    if(!arcOn){ startArc(); fourT_Latched = true; }
+    else       { stopArc();  fourT_Latched = false; }
+  }
+  fourT_PressedLast = isFullPress;
+
+  if(arcOn){
+    // Light pressure = amp modulation (like feathering)
+    const startA = pv('startamp'), peakA = pv('peakamp') + peakTrim;
+    const ratio   = Math.min(1, Math.max(0, (force - 30) / (ARC_START_FORCE - 30)));
+    currentAmps   = Math.round(startA + ratio * (peakA - startA));
+    updateAmpDisplay(currentAmps, peakA);
+
+    if(dir === 'UP')  { peakTrim = Math.min(50, peakTrim + 0.5); setTrim(true); }
+    if(dir === 'DOWN'){ peakTrim = Math.max(-pv('peakamp')+10, peakTrim - 0.5); setTrim(true); }
+    if(dir === 'CENTER') setTrim(false);
+  }
+}
+
+// ── NAV MODE ─────────────────────────────────────────────────
+// Sensor is a joystick for navigating the app.
+// UP/DOWN = scroll params.  LEFT/RIGHT = change parameter groups.
+// Hold UP/DOWN = fine-adjust focused param value.
+// WHOLE press = confirm / select.
+// Force magnitude = scroll speed / adjust rate.
+let navLastDir   = null;
+let navRepeatTimer = null;
+
+function handleNavMode(force, dir){
+  if(force < GESTURE_TAP_FORCE){ clearNavRepeat(); navLastDir = null; return; }
+
+  if(dir === navLastDir) return; // already handling this direction
+  clearNavRepeat();
+  navLastDir = dir;
+
+  if(dir === 'UP'){
+    navStep(-1);
+    navRepeatTimer = setInterval(()=>navStep(-1), 300);
+  } else if(dir === 'DOWN'){
+    navStep(+1);
+    navRepeatTimer = setInterval(()=>navStep(+1), 300);
+  } else if(dir === 'LEFT'){
+    adjustNavParam(-1);
+    navRepeatTimer = setInterval(()=>adjustNavParam(-1), 150);
+  } else if(dir === 'RIGHT'){
+    adjustNavParam(+1);
+    navRepeatTimer = setInterval(()=>adjustNavParam(+1), 150);
+  } else if(dir === 'WHOLE'){
+    selectParamByNavIndex();
+  }
+}
+
+function clearNavRepeat(){ clearInterval(navRepeatTimer); navRepeatTimer=null; }
+
+function navStep(delta){
+  navIndex = (navIndex + delta + PARAMS.length) % PARAMS.length;
+  renderDiagram(); updateTiles();
+  showToast(PARAMS[navIndex].label);
+}
+
+function adjustNavParam(delta){
+  const p = PARAMS[navIndex];
+  p.value = Math.min(p.max, Math.max(p.min, +(p.value + delta * p.step).toFixed(10)));
+  if(appState !== STATE.NAV) setState(STATE.NAV);
+  selectParamById(p.id);
+  schedulePush();
+}
+
+function selectParamByNavIndex(){ selectParamById(PARAMS[navIndex].id); }
+
+// ══════════════════════════════════════════════════════════════
+//  ARC CONTROL
+// ══════════════════════════════════════════════════════════════
+function startArc(){
+  arcOn = true;
+  setState(STATE.WELDING);
+  showToast('ARC ON');
+  sendCtrlCmd(CMD.ARC_ON);
+  sendHaptic(HAP.DOUBLE_BUMP, 90, 250);
+}
+function stopArc(){
+  arcOn = false;
+  currentAmps = 0;
+  setState(STATE.IDLE);
+  showToast('ARC OFF');
+  sendCtrlCmd(CMD.ARC_OFF);
+  sendHaptic(HAP.RAMP_DOWN, 80, 300);
+}
+
+function updateAmpDisplay(amps, peakA){
+  const pct = Math.round((amps / peakA) * 100);
+  document.getElementById('amp-big').textContent = amps;
+  document.getElementById('amp-bar').style.width  = pct + '%';
+  document.getElementById('wo-amp').textContent   = amps;
+  document.getElementById('wo-bar').style.width   = pct + '%';
+}
+
+function setTrim(active){
+  trimActive = active;
+  const ind = document.getElementById('trim-indicator');
+  ind.classList.toggle('visible', active);
+  if(active){
+    document.getElementById('trim-label').textContent = peakTrim >= 0 ? '▲ PEAK TRIM' : '▼ PEAK TRIM';
+    document.getElementById('trim-value').textContent = (peakTrim >= 0 ? '+' : '') + Math.round(peakTrim) + 'A';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SENSOR CANVAS VISUALIZER
+// ══════════════════════════════════════════════════════════════
+function updateSensorViz(){
+  const canvas = document.getElementById('sv-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2, R = W/2 - 4;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Outer ring
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2);
+  ctx.strokeStyle = '#232323'; ctx.lineWidth = 1; ctx.stroke();
+
+  // Grid cross
+  ctx.strokeStyle = '#1c1c1c'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke();
+
+  // Direction zones (faint)
+  ['UP','DOWN','LEFT','RIGHT'].forEach((d,i)=>{
+    const a = [-Math.PI/2, Math.PI/2, Math.PI, 0][i];
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, R - 2, a - Math.PI/4, a + Math.PI/4);
+    ctx.closePath();
+    ctx.fillStyle = sensor.rawGesture === d ? 'rgba(77,184,255,.12)' : 'rgba(255,255,255,.02)';
+    ctx.fill();
+  });
+
+  // Force circle (size = force magnitude)
+  const fRatio = Math.min(1, sensor.force / 1023);
+  const fR = 6 + fRatio * (R - 12);
+  const isWholing = sensor.rawGesture === 'WHOLE';
+  ctx.beginPath();
+  ctx.arc(cx, cy, fR, 0, Math.PI*2);
+  if(arcOn){
+    ctx.fillStyle = `rgba(61,220,132,${0.15 + fRatio * 0.5})`;
+    ctx.strokeStyle = 'var(--green)';
+  } else if(isWholing){
+    ctx.fillStyle = 'rgba(255,140,0,.2)';
+    ctx.strokeStyle = 'var(--amber)';
+  } else {
+    ctx.fillStyle = `rgba(255,140,0,${0.08 + fRatio * 0.3})`;
+    ctx.strokeStyle = fRatio > 0.05 ? 'var(--amber)' : '#333';
+  }
+  ctx.lineWidth = 1.5; ctx.fill(); ctx.stroke();
+
+  // Direction dot (position shows tilt)
+  if(sensor.force > 20){
+    const SCALE = (R - 20) / 512;
+    const dx = (sensor.dirX || 0) * SCALE;
+    const dy = (sensor.dirY || 0) * SCALE;
+    ctx.beginPath();
+    ctx.arc(cx + dx, cy + dy, 6, 0, Math.PI*2);
+    ctx.fillStyle = arcOn ? 'var(--green)' : 'var(--amber)';
+    ctx.fill();
+  }
+
+  // Label quadrants
+  ctx.font = '10px Share Tech Mono, monospace';
+  ctx.fillStyle = '#333'; ctx.textAlign = 'center';
+  ctx.fillText('▲', cx, cy - R + 16);
+  ctx.fillText('▼', cx, cy + R - 6);
+  ctx.fillText('◀', cx - R + 10, cy + 4);
+  ctx.fillText('▶', cx + R - 10, cy + 4);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  GESTURE REFERENCE MAP (dynamic, state-aware)
+// ══════════════════════════════════════════════════════════════
+const GESTURE_MAPS = {
+  pedal: {
+    IDLE: [
+      {icon:'⬤', action:'Press (any force)', effect:'Start arc · Force = amps'},
+      {icon:'↑↓', action:'Up / Down tilt', effect:'(no effect until arc on)'},
+    ],
+    WELDING: [
+      {icon:'⬤', action:'Force magnitude', effect:'Controls current 0–Peak'},
+      {icon:'↑', action:'Hold tilt UP', effect:'Increase peak trim +'},
+      {icon:'↓', action:'Hold tilt DOWN', effect:'Decrease peak trim −'},
+      {icon:'○', action:'Release fully', effect:'Arc stop → Idle'},
+    ],
+  },
+  '4t': {
+    IDLE: [
+      {icon:'⊛', action:'Full press (whole)', effect:'Arc start — latched on'},
+      {icon:'↑↓', action:'Up/Down tilt', effect:'Navigate params (light touch)'},
+      {icon:'◀▶', action:'Left/Right tilt', effect:'Adjust focused param value'},
+    ],
+    WELDING: [
+      {icon:'⬤', action:'Partial force', effect:'Modulate current continuously'},
+      {icon:'↑', action:'Hold UP while welding', effect:'Trim peak up +'},
+      {icon:'↓', action:'Hold DOWN while welding', effect:'Trim peak down −'},
+      {icon:'⊛', action:'Full press (whole) again', effect:'Arc stop → Idle'},
+    ],
+  },
+  nav: {
+    IDLE: [
+      {icon:'↑', action:'Tap or hold UP', effect:'Previous parameter'},
+      {icon:'↓', action:'Tap or hold DOWN', effect:'Next parameter'},
+      {icon:'◀', action:'Hold LEFT', effect:'Decrease parameter value'},
+      {icon:'▶', action:'Hold RIGHT', effect:'Increase parameter value'},
+      {icon:'⊛', action:'Whole press', effect:'Select / open parameter editor'},
+    ],
+    WELDING: [
+      {icon:'—', action:'Nav mode inactive', effect:'Switch back to Pedal/4T to weld'},
+    ],
+  },
+};
+
+function updateGestureMap(){
+  const mapEl = document.getElementById('gesture-map');
+  const modeMap = GESTURE_MAPS[controlMode] || GESTURE_MAPS.pedal;
+  const stateKey = (appState === STATE.WELDING) ? 'WELDING' : 'IDLE';
+  const gestures = modeMap[stateKey] || modeMap['IDLE'];
+
+  const stateClass = appState === STATE.WELDING ? 'weld' : (controlMode === 'nav' ? 'nav' : 'idle');
+  const stateLabel = appState === STATE.WELDING ? 'WELDING' : 'IDLE';
+
+  let html = `<div class="gr-state-header ${stateClass}">${controlMode.toUpperCase()} MODE · ${stateLabel}</div>
+  <div class="gesture-list">`;
+  gestures.forEach(g=>{
+    html+=`<div class="gesture-row">
+      <span class="gesture-icon">${g.icon}</span>
+      <div>
+        <span class="gesture-action">${g.action}</span>
+        <span class="gesture-effect">${g.effect}</span>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  mapEl.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SHAPE BAR
+// ══════════════════════════════════════════════════════════════
+function buildShapeBar(){
+  const row = document.getElementById('shape-row');
+  row.innerHTML = '';
+  SHAPES.forEach(s=>{
+    const btn = document.createElement('div');
+    btn.className = 'sh-btn' + (activeShape.id===s.id?' active':'');
+    const svgPath = s.icon(60,24);
+    btn.innerHTML=`<svg viewBox="0 0 60 24" width="60" height="24"><path d="${svgPath}" fill="none" stroke="${activeShape.id===s.id?'#ff8c00':'#555'}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+    <span class="sh-name">${s.label}</span>`;
+    btn.addEventListener('click',()=>{ activeShape=s; buildShapeBar(); renderDiagram(); updateWeldShapeLabel(); onShapeChange(SHAPES.indexOf(s)); });
+    row.appendChild(btn);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  WAVEFORM DIAGRAM
+// ══════════════════════════════════════════════════════════════
+const X0=44, X1=848, YB=185, YT=18, W_SVG=X1-X0, H_SVG=YB-YT;
+function ampY(a){ const top=Math.max(pv('peakamp'),pv('startamp'),10)*1.15; return YB-(a/top)*H_SVG; }
+function pw(){ const pre=pv('preflow'),ru=pv('rampup'),sp=.5,pk=3.5,rd=pv('rampdown'),fp=.5,post=pv('postflow'); const tot=pre+sp+ru+pk+rd+fp+post; return {pre,sp,ru,pk,rd,fp,post,tot}; }
+
+function pts(){
+  const p=pw(); const fx=a=>X0+(a/p.tot)*W_SVG;
+  let a=0;
+  const x0=fx(a); a+=p.pre;
+  const x1=fx(a); const yBase=YB; a+=p.sp;
+  const x2=fx(a); const yStart=ampY(pv('startamp')); a+=p.ru;
+  const x3=fx(a); const yPeak=ampY(pv('peakamp')); a+=p.pk;
+  const x4=fx(a); a+=p.rd;
+  const x5=fx(a); a+=p.fp;
+  const x6=fx(a);
+  const x7=X1;
+  const yBaseA=ampY(pv('baseamp'));
+  return {x0,x1,x2,x3,x4,x5,x6,x7,yBase,yStart,yPeak,yBaseA,
+    mPre: X0+(p.pre/2/p.tot)*W_SVG,
+    mRU:  X0+((p.pre+p.sp+p.ru/2)/p.tot)*W_SVG,
+    mPeak:X0+((p.pre+p.sp+p.ru+p.pk/2)/p.tot)*W_SVG,
+    mRD:  X0+((p.pre+p.sp+p.ru+p.pk+p.rd/2)/p.tot)*W_SVG,
+    mPost:X0+((p.pre+p.sp+p.ru+p.pk+p.rd+p.fp+p.post/2)/p.tot)*W_SVG,
+  };
+}
+
+let activeParamId = null;
+
+function svgE(tag,a={}){ const e=document.createElementNS('http://www.w3.org/2000/svg',tag); for(const[k,v] of Object.entries(a)) e.setAttribute(k,v); return e; }
+function addT(g,x,y,txt,cls,anchor='middle'){ const t=svgE('text',{x,y,'text-anchor':anchor,class:cls}); t.textContent=txt; g.appendChild(t); }
+
+function renderDiagram(){
+  const p = pts();
+
+  document.getElementById('wf-main').setAttribute('d',
+    `M${p.x0},${YB}L${p.x1},${YB}L${p.x1},${p.yStart}L${p.x2},${p.yStart}L${p.x3},${p.yPeak}L${p.x4},${p.yPeak}L${p.x5},${p.yStart}L${p.x6},${p.yStart}L${p.x6},${YB}L${p.x7},${YB}`
+  );
+
+  const freq=pv('pulsefreq');
+  if(freq>0){
+    const n=Math.max(1,Math.min(Math.round(freq*2),(p.x4-p.x3)/10));
+    document.getElementById('wf-pulse').setAttribute('d', activeShape.pulse(p.x3,p.x4,p.yPeak,p.yBaseA,n,pv('dutycycle')/100));
+    const bl = document.getElementById('wf-base-line');
+    bl.setAttribute('x1',p.x3); bl.setAttribute('x2',p.x4); bl.setAttribute('y1',p.yBaseA); bl.setAttribute('y2',p.yBaseA); bl.setAttribute('display','block');
+  } else {
+    document.getElementById('wf-pulse').setAttribute('d','');
+    document.getElementById('wf-base-line').setAttribute('display','none');
+  }
+
+  // Grid
+  const gG = document.getElementById('wf-grid'); gG.innerHTML='';
+  const maxA = Math.max(pv('peakamp'),pv('startamp'),10)*1.15;
+  [.25,.5,.75,1].forEach(f=>{
+    const a=Math.round(maxA*f/1.15), y=ampY(a);
+    gG.appendChild(svgE('line',{x1:X0,x2:X1,y1:y,y2:y,class:'wgrid-line'}));
+    addT(gG,X0-4,y+4,`${a}A`,'wlabel','end');
+  });
+
+  // Hit zones — each param is a clickable region
+  const hzG = document.getElementById('wf-hits'); hzG.innerHTML='';
+  const SEGS = [
+    {id:'preflow',  x:p.x0,  x2:p.x1},
+    {id:'startamp', x:p.x1,  x2:p.x2},
+    {id:'rampup',   x:p.x2,  x2:p.x3},
+    {id:'peakamp',  x:p.x3,  x2:p.x3+(p.x4-p.x3)/3},
+    {id:'baseamp',  x:p.x3+(p.x4-p.x3)/3, x2:p.x3+(p.x4-p.x3)*2/3},
+    {id:'pulsefreq',x:p.x3+(p.x4-p.x3)*2/3, x2:p.x3+(p.x4-p.x3)*5/6},
+    {id:'dutycycle',x:p.x3+(p.x4-p.x3)*5/6, x2:p.x4},
+    {id:'rampdown', x:p.x4,  x2:p.x5},
+    {id:'postflow', x:p.x6,  x2:p.x7},
+  ];
+  SEGS.forEach(s=>{
+    const isActive = activeParamId===s.id;
+    const isNav    = appState===STATE.NAV && PARAMS[navIndex].id===s.id;
+    const cls = 'seg-hit'+(isActive?' active':'')+(isNav?' nav-focus':'');
+    const r = svgE('rect',{x:s.x,y:YT,width:Math.max(s.x2-s.x,2),height:YB-YT+16,class:cls,'data-id':s.id});
+    r.addEventListener('click',()=>selectParamById(s.id));
+    hzG.appendChild(r);
+  });
+
+  // Annotations
+  const ann = document.getElementById('wf-ann'); ann.innerHTML='';
+  const ac  = id=>activeParamId===id?' active':(appState===STATE.NAV&&PARAMS[navIndex].id===id?' nav':'');
+
+  addT(ann,p.mPre,YT+10,'PRE','wlabel'+ac('preflow'));
+  addT(ann,p.mPre,YT+21,pp('preflow').fmt(pv('preflow')),'wvalue'+ac('preflow'));
+
+  ann.appendChild(Object.assign(svgE('circle',{cx:p.x1,cy:p.yStart,r:4}), {style:''}));
+  ann.lastChild.setAttribute('class','wdot'+ac('startamp'));
+  addT(ann,p.x2-2,p.yStart-14,pp('startamp').fmt(pv('startamp')),'wvalue'+ac('startamp'));
+
+  const rmx=(p.x2+p.x3)/2,rmy=(p.yStart+p.yPeak)/2;
+  addT(ann,rmx,rmy-12,'RAMP','wlabel'+ac('rampup'));
+  addT(ann,rmx,rmy-1,pp('rampup').fmt(pv('rampup')),'wvalue'+ac('rampup'));
+
+  ann.appendChild(Object.assign(svgE('circle',{cx:p.mPeak,cy:p.yPeak,r:4,class:'wdot'+ac('peakamp')})));
+  addT(ann,p.mPeak,p.yPeak-14,'PEAK','wlabel'+ac('peakamp'));
+  addT(ann,p.mPeak,p.yPeak-3,pp('peakamp').fmt(pv('peakamp')),'wvalue'+ac('peakamp'));
+
+  if(freq>0){
+    addT(ann,p.x3-2,p.yBaseA+4,pp('baseamp').fmt(pv('baseamp')),'wvalue'+ac('baseamp'),'end');
+    addT(ann,p.mPeak,p.yBaseA+14,`${pp('pulsefreq').fmt(pv('pulsefreq'))} ${pp('dutycycle').fmt(pv('dutycycle'))} ${activeShape.label}`,
+      'wlabel'+ac('pulsefreq'));
+  }
+
+  const rdmx=(p.x4+p.x5)/2,rdmy=(p.yPeak+p.yStart)/2;
+  addT(ann,rdmx,rdmy-12,'RAMP DN','wlabel'+ac('rampdown'));
+  addT(ann,rdmx,rdmy-1,pp('rampdown').fmt(pv('rampdown')),'wvalue'+ac('rampdown'));
+
+  addT(ann,p.mPost,YT+10,'POST','wlabel'+ac('postflow'));
+  addT(ann,p.mPost,YT+21,pp('postflow').fmt(pv('postflow')),'wvalue'+ac('postflow'));
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PARAM EDITOR (touch/mouse)
+// ══════════════════════════════════════════════════════════════
+// bleWriteTimer removed — using schedulePush()
+
+function selectParamById(id){
+  const p = pp(id);
+  if(!p) return;
+  if(activeParamId === id){ activeParamId=null; document.getElementById('param-panel').classList.remove('open'); renderDiagram(); updateTiles(); return; }
+  activeParamId = id;
+  navIndex = ORDERED_PARAM_IDS.indexOf(id);
+  document.getElementById('pi-name').textContent     = p.label;
+  document.getElementById('pi-hint').textContent     = p.hint;
+  document.getElementById('sl-min').textContent      = p.min+(p.unit||'');
+  document.getElementById('sl-max').textContent      = p.max+(p.unit||'');
+  const sl = document.getElementById('main-slider');
+  sl.min = p.min/p.step; sl.max = p.max/p.step; sl.step = 1;
+  sl.value = p.value/p.step;
+  updateSliderDisplay(p);
+  document.getElementById('param-panel').classList.add('open');
+  renderDiagram(); updateTiles();
+}
+
+function updateSliderDisplay(p){
+  document.getElementById('pi-readout').textContent = p.fmt(p.value);
+  const pct = ((p.value-p.min)/(p.max-p.min))*100;
+  document.getElementById('main-slider').style.background =
+    `linear-gradient(to right,var(--amber) ${pct}%,var(--muted2) ${pct}%)`;
+}
+
+document.getElementById('main-slider').addEventListener('input',()=>{
+  if(!activeParamId) return;
+  const p = pp(activeParamId);
+  p.value = parseFloat(document.getElementById('main-slider').value) * p.step;
+  updateSliderDisplay(p);
+  renderDiagram(); updateTiles();
+  schedulePush();
+});
+
+// ══════════════════════════════════════════════════════════════
+//  TILES
+// ══════════════════════════════════════════════════════════════
+function buildTiles(){
+  const g = document.getElementById('tiles'); g.innerHTML='';
+  PARAMS.forEach(p=>{
+    const t=document.createElement('div');
+    t.className='ptile'; t.dataset.id=p.id;
+    t.innerHTML=`<div class="pt-label">${p.label}</div><div class="pt-value" id="tv-${p.id}">${p.fmt(p.value)}</div>${p.ble?`<div class="pt-ble">BLE CH${p.ble}</div>`:''}`;
+    t.addEventListener('click',()=>selectParamById(p.id));
+    g.appendChild(t);
+  });
+}
+function updateTiles(){
+  PARAMS.forEach(p=>{
+    const t=document.querySelector(`.ptile[data-id="${p.id}"]`);
+    if(!t) return;
+    const isActive=activeParamId===p.id;
+    const isNav   =appState===STATE.NAV&&PARAMS[navIndex].id===p.id;
+    t.className='ptile'+(isActive?' active':'')+(isNav&&!isActive?' nav-focus':'');
+    const v=document.getElementById(`tv-${p.id}`);
+    if(v) v.textContent=p.fmt(p.value);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MODE TABS
+// ══════════════════════════════════════════════════════════════
+document.getElementById('mode-tabs').addEventListener('click',e=>{
+  const tab=e.target.closest('.mode-tab');
+  if(!tab) return;
+  controlMode = tab.dataset.mode;
+  document.querySelectorAll('.mode-tab').forEach(t=>t.className='mode-tab');
+  const cls = controlMode==='pedal'?'active-pedal':controlMode==='4t'?'active-4t':'active-nav';
+  tab.classList.add(cls);
+  document.getElementById('arc-mode-label').textContent =
+    controlMode==='pedal'?'PEDAL MODE':controlMode==='4t'?'4T MODE':'NAV MODE';
+  updateGestureMap();
+  onModeChange(controlMode);
+  showToast(controlMode.toUpperCase()+' MODE');
+});
+// Set default
+document.querySelector('.mode-tab[data-mode="pedal"]').classList.add('active-pedal');
+
+// ══════════════════════════════════════════════════════════════
+//  BLE — matches tigforce_interface.ino GATT layout
+// ══════════════════════════════════════════════════════════════
+// Service + characteristic UUIDs (must match firmware exactly)
+const SVC_UUID        = '12345678-1234-1234-1234-123456789abc';
+const UUID_SENSOR     = '12345678-1234-1234-1234-123456789ab1'; // notify 10B
+const UUID_WELD_CFG   = '12345678-1234-1234-1234-123456789ab2'; // r/w/n 18B
+const UUID_CTRL_CMD   = '12345678-1234-1234-1234-123456789ab3'; // write 2B
+const UUID_HAPTIC_CMD = '12345678-1234-1234-1234-123456789ab4'; // write 4B
+const UUID_LINK_QUAL  = '12345678-1234-1234-1234-123456789ab5'; // notify 4B
+
+// Haptic pattern IDs (must match sensor firmware enum)
+const HAP = { OFF:0, SOLID:1, PULSE_SLOW:2, PULSE_FAST:3,
+              DOUBLE_BUMP:4, TRIPLE_BUMP:5, RAMP_UP:6, RAMP_DOWN:7 };
+
+// Ctrl command IDs
+const CMD = { SET_MODE:0x01, ARC_ON:0x02, ARC_OFF:0x03, SET_SHAPE:0x04, LINK_TEST:0x05 };
+
+let bleDevice=null, bleGattSvc=null;
+let charSensor=null, charWeldCfg=null, charCtrlCmd=null, charHaptic=null, charLink=null;
+
+// ── Connect / Disconnect ─────────────────────────────────────
+document.getElementById('connectBtn').addEventListener('click', async()=>{
+  if(bleDevice&&bleDevice.gatt.connected){ bleDevice.gatt.disconnect(); return; }
+  try{
+    setStatus('SCANNING…','');
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters:[{name:'TIG Force'}],
+      optionalServices:[SVC_UUID]
+    });
+    bleDevice.addEventListener('gattserverdisconnected', onDisco);
+    setStatus('CONNECTING…','');
+    const server = await bleDevice.gatt.connect();
+    bleGattSvc   = await server.getPrimaryService(SVC_UUID);
+
+    // CH0 — SENSOR_DATA (notify, 10 bytes)
+    charSensor = await bleGattSvc.getCharacteristic(UUID_SENSOR);
+    charSensor.addEventListener('characteristicvaluechanged', onSensorNotify);
+    await charSensor.startNotifications();
+
+    // CH1 — WELD_CONFIG (read / write / notify, 18 bytes)
+    charWeldCfg = await bleGattSvc.getCharacteristic(UUID_WELD_CFG);
+    const cfgDv = await charWeldCfg.readValue();
+    parseWeldConfigFromDevice(cfgDv);
+    charWeldCfg.addEventListener('characteristicvaluechanged', e=>parseWeldConfigFromDevice(e.target.value));
+    await charWeldCfg.startNotifications();
+
+    // CH2 — CTRL_CMD (write only)
+    charCtrlCmd = await bleGattSvc.getCharacteristic(UUID_CTRL_CMD);
+
+    // CH3 — HAPTIC_CMD (write only)
+    charHaptic = await bleGattSvc.getCharacteristic(UUID_HAPTIC_CMD);
+
+    // CH4 — LINK_QUALITY (notify, 4 bytes)
+    charLink = await bleGattSvc.getCharacteristic(UUID_LINK_QUAL);
+    charLink.addEventListener('characteristicvaluechanged', onLinkNotify);
+    await charLink.startNotifications();
+
+    setStatus('CONNECTED · TIG Force','connected');
+    document.getElementById('connectBtn').textContent='Disconnect';
+
+    // Push current app params to device immediately after connect
+    await pushWeldConfig();
+    renderDiagram(); updateTiles();
+    showToast('TIG Force connected');
+  } catch(e){ console.error(e); setStatus('ERROR: '+e.message,'error'); }
+});
+
+function onDisco(){
+  charSensor=charWeldCfg=charCtrlCmd=charHaptic=charLink=bleGattSvc=null;
+  setStatus('OFFLINE','');
+  document.getElementById('connectBtn').textContent='Connect';
+  setState(STATE.IDLE);
+}
+function setStatus(msg,cls){ const el=document.getElementById('status-pill'); el.textContent=msg; el.className=cls; }
+
+// ── Sensor data notification handler (10 bytes) ──────────────
+function onSensorNotify(e){
+  const dv = e.target.value;
+  if(dv.byteLength < 10) return;
+  const force   = dv.getUint16(0, true);
+  const dirX    = dv.getInt16(2,  true);
+  const dirY    = dv.getInt16(4,  true);
+  // const gesture = dv.getUint8(6);  // available if needed
+  const arcOnBle= dv.getUint8(7);
+  const amps    = dv.getInt16(8,  true);
+  processSensorData(force, dirX, dirY);
+  // Sync arc state from device
+  if(arcOnBle && appState !== STATE.WELDING) setState(STATE.WELDING);
+  if(!arcOnBle && appState === STATE.WELDING) setState(STATE.IDLE);
+  if(arcOnBle){ updateAmpDisplay(amps, pp('peakamp').value); }
+}
+
+// ── Link quality notification handler (4 bytes) ──────────────
+function onLinkNotify(e){
+  const dv   = e.target.value;
+  if(dv.byteLength < 4) return;
+  const rtt  = dv.getUint16(0, true);
+  const errs = dv.getUint8(2);
+  const fps  = dv.getUint8(3);
+  const hwNote = document.getElementById('hw-note');
+  if(hwNote){
+    if(!hwNote.dataset.baseText) hwNote.dataset.baseText = hwNote.innerHTML;
+    hwNote.innerHTML = hwNote.dataset.baseText +
+      '<br><span style="color:var(--green)">RS485: RTT ' + rtt + 'µs · FPS ' + fps + ' · CRC errs ' + errs + '</span>';
+  }
+}
+
+// ── Parse 18-byte WELD_CONFIG from device -> update PARAMS ───
+function parseWeldConfigFromDevice(dv){
+  if(dv.byteLength < 18) return;
+  const fields = [
+    ['peakamp',0,1],['baseamp',2,1],['pulsefreq',4,1],
+    ['dutycycle',6,1],['startamp',8,1],
+    ['preflow',10,0.001],['rampup',12,0.001],
+    ['rampdown',14,0.001],['postflow',16,0.001],
+  ];
+  fields.forEach(([id, offset, scale])=>{
+    const raw = dv.getInt16(offset, true);
+    const p   = pp(id);
+    if(p) p.value = Math.min(p.max, Math.max(p.min, raw * scale));
+  });
+  renderDiagram(); updateTiles();
+}
+
+// ── Push all PARAMS -> device as 18-byte WELD_CONFIG ─────────
+async function pushWeldConfig(){
+  if(!charWeldCfg) return;
+  const buf = new ArrayBuffer(18);
+  const dv  = new DataView(buf);
+  const fields = [
+    ['peakamp',0,1],['baseamp',2,1],['pulsefreq',4,1],
+    ['dutycycle',6,1],['startamp',8,1],
+    ['preflow',10,1000],['rampup',12,1000],
+    ['rampdown',14,1000],['postflow',16,1000],
+  ];
+  fields.forEach(([id, offset, scale])=>{
+    const p = pp(id);
+    dv.setInt16(offset, Math.round(p.value * scale), true);
+  });
+  try{ await charWeldCfg.writeValueWithoutResponse(buf); } catch(e){ console.warn('cfg write:',e); }
+}
+
+// ── Send a 2-byte control command ─────────────────────────────
+async function sendCtrlCmd(cmd, param=0){
+  if(!charCtrlCmd) return;
+  const buf = new Uint8Array([cmd, param]);
+  try{ await charCtrlCmd.writeValueWithoutResponse(buf); } catch(e){ console.warn('cmd:',e); }
+}
+
+// ── Send a haptic command to sensor (4 bytes) ─────────────────
+async function sendHaptic(pattern, intensity=80, duration=200){
+  if(!charHaptic) return;
+  const buf = new ArrayBuffer(4);
+  const dv  = new DataView(buf);
+  dv.setUint8(0, pattern); dv.setUint8(1, intensity);
+  dv.setUint16(2, duration, true);
+  try{ await charHaptic.writeValueWithoutResponse(buf); } catch(e){ console.warn('haptic:',e); }
+}
+
+// ── Weld params: hook slider changes to push config + haptic ─
+let paramPushTimer = null;
+function schedulePush(){
+  clearTimeout(paramPushTimer);
+  paramPushTimer = setTimeout(()=>{ pushWeldConfig(); sendHaptic(HAP.PULSE_FAST,40,80); }, 80);
+}
+
+// ── Shape/mode change hooks (called from existing handlers) ───
+const SHAPE_IDS = ['square','triangle','sine','sawtooth','softSquare'];
+function onShapeChange(idx){ sendCtrlCmd(CMD.SET_SHAPE, idx); sendHaptic(HAP.PULSE_FAST,50,80); }
+function onModeChange(modeStr){
+  const m = {pedal:1,'4t':2,nav:3,idle:0};
+  sendCtrlCmd(CMD.SET_MODE, m[modeStr]??0);
+  sendHaptic(HAP.DOUBLE_BUMP,70,200);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DEMO MODE — simulate sensor with mouse/touch on canvas
+//  (so you can test the UI without hardware)
+// ══════════════════════════════════════════════════════════════
+const svCanvas = document.getElementById('sv-canvas');
+
+function canvasEventToSensor(cx, cy, canvasRect){
+  const relX = cx - canvasRect.left - 80;  // offset to center
+  const relY = cy - canvasRect.top  - 80;
+  const dist = Math.sqrt(relX*relX + relY*relY);
+  const maxDist = 76;
+  const force  = Math.min(1023, Math.round((dist / maxDist) * 1023));
+  const dirX   = Math.round((relX / maxDist) * 512);
+  const dirY   = Math.round((relY / maxDist) * 512);
+  processSensorData(force, dirX, dirY);
+}
+
+svCanvas.addEventListener('mousemove', e=>{
+  if(e.buttons === 0) return;
+  canvasEventToSensor(e.clientX, e.clientY, svCanvas.getBoundingClientRect());
+});
+svCanvas.addEventListener('mousedown', e=>{
+  canvasEventToSensor(e.clientX, e.clientY, svCanvas.getBoundingClientRect());
+});
+svCanvas.addEventListener('mouseup', ()=>processSensorData(0,0,0));
+svCanvas.addEventListener('mouseleave', ()=>processSensorData(0,0,0));
+
+svCanvas.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  const t=e.touches[0];
+  canvasEventToSensor(t.clientX, t.clientY, svCanvas.getBoundingClientRect());
+},{passive:false});
+svCanvas.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  const t=e.touches[0];
+  canvasEventToSensor(t.clientX, t.clientY, svCanvas.getBoundingClientRect());
+},{passive:false});
+svCanvas.addEventListener('touchend', ()=>processSensorData(0,0,0));
+
+// ══════════════════════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════════════════════
+let toastTimer=null;
+function showToast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),1800);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════
+buildShapeBar();
+buildTiles();
+renderDiagram();
+setState(STATE.IDLE);
+updateGestureMap();
+updateSensorViz();
+window.addEventListener('resize', renderDiagram);
+
+showToast('Demo mode — drag sensor circle or connect TIG Force');
+</script>
+</body>
+</html>
